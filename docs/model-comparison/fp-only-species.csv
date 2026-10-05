@@ -1,0 +1,59 @@
+Species,FP-only membership,v2.4 FP,v2.4 max FP confidence,v3 FP,v3 max FP confidence
+Aegolius funereus,Both,1,0.7143,1,0.673
+Alcedo atthis,V2.4 only,3,0.7357,0,
+Anthus hodgsoni,V2.4 only,3,0.792,0,
+Anthus richardi,V3 only,0,,1,0.6115
+Anthus trivialis,Both,1,0.6915,2,0.6745
+Ardea alba,V3 only,0,,1,0.6351
+Asio otus,V3 only,0,,1,0.6466
+Astur cooperii,V3 only,0,,1,0.649
+Athene noctua,Both,12,0.8342,1,0.6644
+Branta bernicla,V3 only,0,,1,0.8104
+Branta canadensis,V3 only,0,,20,0.8303
+Branta leucopsis,V2.4 only,2,0.7593,0,
+Bubo bubo,V3 only,0,,2,0.6593
+Caprimulgus europaeus,V2.4 only,1,0.7512,0,
+Certhia brachydactyla,V2.4 only,2,0.7715,0,
+Cettia cetti,V3 only,0,,2,0.6812
+Clangula hyemalis,V3 only,0,,1,0.6896
+Coturnix coturnix,V3 only,0,,1,0.606
+Cuculus canorus,V3 only,0,,1,0.6923
+Dryocopus martius,Both,2,0.6429,7,0.8683
+Emberiza hortulana,V3 only,0,,1,0.6104
+Emberiza pusilla,Both,8,0.8989,1,0.6049
+Emberiza rustica,Both,2,0.6663,2,0.7398
+Ficedula parva,V3 only,0,,2,0.7471
+Fulica atra,Both,2,0.6908,2,0.8139
+Gallinula chloropus,Both,4,0.8895,6,0.9118
+Gavia immer,V3 only,0,,3,0.8624
+Lagopus lagopus,V2.4 only,1,0.6721,0,
+Lophophanes cristatus,V3 only,0,,1,0.6558
+Loxia leucoptera,V3 only,0,,2,0.7645
+Loxia pytyopsittacus,Both,3,0.7495,5,0.9317
+Motacilla cinerea,Both,2,0.8818,2,0.684
+Muscicapa striata,Both,6,0.7242,2,0.6597
+Numenius arquata,V2.4 only,1,0.6693,0,
+Nycticorax nycticorax,Both,8,0.8311,6,0.8305
+Oriolus oriolus,V3 only,0,,1,0.9091
+Otus scops,Both,2,0.806,9,0.899
+Panurus biarmicus,V2.4 only,1,0.7087,0,
+Parus major,V2.4 only,1,0.7611,0,
+Perdix perdix,V2.4 only,2,0.8237,0,
+Phoenicurus phoenicurus,Both,2,0.6109,2,0.8601
+Phylloscopus proregulus,V2.4 only,1,0.7264,0,
+Phylloscopus trochiloides,V3 only,0,,1,0.6418
+Phylloscopus trochilus,V3 only,0,,1,0.619
+Pinicola enucleator,V3 only,0,,1,0.8161
+Plectrophenax nivalis,V3 only,0,,1,0.6318
+Pluvialis apricaria,V2.4 only,1,0.6078,0,
+Poecile palustris,Both,4,0.7589,1,0.698
+Porzana porzana,Both,44,0.9201,2,0.6223
+Rallus aquaticus,Both,2,0.8862,1,0.7577
+Regulus ignicapilla,Both,1,0.6198,2,0.7374
+Scolopax rusticola,V3 only,0,,15,0.7464
+Strix nebulosa,V2.4 only,4,0.7723,0,
+Tetrao urogallus,V3 only,0,,1,0.6634
+Tringa ochropus,V3 only,0,,1,0.6605
+Turdus torquatus,V3 only,0,,2,0.645
+Tyto furcata,V3 only,0,,1,0.6857
+Vanellus vanellus,V3 only,0,,7,0.8159
