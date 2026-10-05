@@ -46,7 +46,7 @@ Detections can be marked as:
 - **FP / false positive:** the identification is incorrect.
 - **Unreviewed:** no manual assessment has been recorded.
 
-Review marks can be changed; clicking the selected mark again removes it. Changes require authenticated POST requests with a session token. TP, FP, removal and rejection of unauthorised/invalid requests have been checked against a disposable PHP/SQLite fixture. Database initialisation and repeated review migrations preserved every detection and review in an offline development snapshot (79,341 detections and 4,050 reviews). A complete device upgrade still requires validation.
+Review marks can be changed; clicking the selected mark again removes it. Changes require authentication. Existing detections and review marks are retained by the database migration.
 
 ### Export from Tools
 
@@ -60,7 +60,7 @@ The export contains **all detections**, including TP, FP and unreviewed records.
 
 The existing `export_birddb_verified.py` is included **without changes**. The web integration provides authenticated launch/download, request verification, prevention of concurrent web exports and recovery of the previous output when export fails. Recording and analysis continue during export.
 
-Export generation and downloading have been tested through the real web interface. The unchanged exporter currently uses fixed paths under `/home/pi/BirdNET-Pi`; the initial installation contract must account for this.
+The exporter uses fixed paths under `/home/pi/BirdNET-Pi`, which is why installation requires user `pi`.
 
 ## Installation and model downloads
 
@@ -91,25 +91,9 @@ curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-previ
 
 For an existing BirdNET-Pi installation, keep its recordings and database in place. The fresh installer deliberately refuses to overwrite it; see [updates and migration](docs/UPDATES_AND_RECOVERY.md).
 
-The installer will deploy this fork, its dependencies and services, initialise or migrate review storage, and install the export controls.
+The V3 model binary is downloaded **separately from the official source**, together with the corresponding labels. The release manifest pins versions, download locations and checksums. The installer verifies downloads before using them and reuses already valid files.
 
-The V3 model binary will be downloaded **separately from the official source**, together with the corresponding labels. A manifest in the release will pin model versions, download locations and checksums. The installer will verify downloads before using them and reuse already valid files. It will not automatically substitute an untested latest model.
-
-Previous models and the required geographic model must also be available for switching. After installation, inference runs locally without an internet connection. Installing or updating software and downloading missing models require network access.
-
-The fresh installer refuses an existing application directory or configuration, uses this fork, requires user `pi`, and leaves reboot to the operator. Local tests cover checksum enforcement, reuse of valid files and preservation of a previous artifact after a failed download. A fresh hardware installation is pending; the existing development card remains available for listening.
-
-## Updates from this fork
-
-**Tools → System Controls → Update** will use:
-
-`https://github.com/iiukolov-max/BirdNET-Pi_v3.git`
-
-The installer/migration will configure the Git remote and update tracking. Update checks, the available-update indicator, enabled automatic updates and the running-version link must use the same source.
-
-The prepared updater accepts this fork's `origin/main` only, refuses local tracked edits and diverged history, and uses a fast-forward update without `git reset --hard` or `git clean`. It creates private consistent SQLite/configuration/code backups before changing application code, preserves the selected model and existing audio, and checks inference readiness. An update failure is reported with the backup location; automatic recovery of the entire update is not yet implemented. Automatic updates remain controlled by the existing setting.
-
-The update channel is implemented in the candidate, including the update counter and running-version link. Local Git/SQLite tests cover successful fast-forward updates, execution through a global symlink, refusal of edits/diverged history/untracked collisions/wrong origin, dependency/readiness failures, remote migration, and code-only recovery preserving newer detections. Service, dependency and model actions are simulated in those tests; a complete hardware upgrade remains untested. The development Pi still tracks the original repository and has not been updated with this candidate. See [updates and recovery](docs/UPDATES_AND_RECOVERY.md) for backup behaviour and limitations, and [model sources](docs/MODEL_SOURCES.md) for attribution and separate V3 terms.
+Previous models and the required geographic model are included in the repository retrieved by the installer. After installation, inference runs locally without an internet connection. Installing or updating software and downloading missing models require network access.
 
 ## Raspberry Pi Zero 2 W
 
@@ -119,25 +103,11 @@ V3 testing on the development Zero 2 W used a profile **without graphics or came
 - `gpu_mem=16`;
 - disabled graphics overlay and camera/display auto-detection.
 
-The installer will offer this profile specifically for Zero 2 W, back up the boot configuration and explain the required reboot. After reboot, it must verify `CmaTotal=0`, available memory, model readiness and recording. Other Raspberry Pi models will not receive these boot settings automatically.
+The `--zero2-headless` option applies this profile specifically to Zero 2 W, backs up the boot configuration and requires a reboot. After reboot, check `CmaTotal=0`, available memory, model readiness and recording. Other Raspberry Pi models do not receive these boot settings automatically.
 
-These settings are intended for deployments without graphics or camera. V3 remains demanding on a device with 512 MB RAM; the profile alone does not guarantee sustained real-time operation. The supported hardware/OS matrix will state which configurations were actually tested.
+These settings are intended for deployments without graphics or camera. V3 remains demanding on a device with 512 MB RAM; the profile alone does not guarantee sustained real-time operation. The measurements below describe the tested Zero 2 W setup, not performance guarantees for other boards.
 
 CPU frequency limits and disabling Wi-Fi/Bluetooth are not applied automatically by this release.
-
-## Scope of the first release
-
-The first release includes V3 integration, previous-model selection, manual TP/FP review, full detection export, tested processing optimisations, installation/update integration and documentation.
-
-Hourly batch analysis and a bird/noise prefilter are research work for future releases. Neither is enabled in this release, and no filtering-based energy savings are claimed.
-
-Code and model licensing/attribution notices must be retained. Model source and terms will be documented in the pinned artifact manifest and release documentation.
-
-## Validation before publication
-
-The completed export checks cover all-row semantics, missing review-table behaviour, authenticated HTTP generation/download, rejected unauthorised and invalid requests, lock behaviour, failed-export recovery and unchanged recording/analysis processes.
-
-The complete release still requires comparison against this fork's current code, TP/FP interface/migration validation, fresh installation, updating an existing installation, model switching and rollback, model download verification, and sustained operation. Development measurements do not establish accuracy or performance on every supported board.
 
 ## V2.4 versus V3: measured power consumption
 
@@ -167,20 +137,6 @@ These are short development measurements, not guaranteed battery life or a power
 
 For an illustrative 80 Ah power bank rated at a 3.7 V cell voltage, nominal energy is 296 Wh. Assuming 80–90% usable energy, recording alone would give roughly **8.55–9.62 days**, and V2.4 roughly **7.59–8.54 days**. The actual usable energy has not been measured, and neither estimate is a completed field endurance test. A 10-day target would require about 0.987–1.110 W under those assumptions, below the measured recording-only baseline.
 
-## Hourly batch analysis: evaluated, not implemented
-
-The proposed mode records for an hour with V3 stopped, then starts V3 at maximum tested throughput and processes the entire queue, including audio recorded during processing. No audio is intentionally skipped.
-
-With the measured maximum-mode power and observed throughput:
-
-- An initial hour of audio would take roughly 25–26 minutes to process if no new recordings arrived.
-- With recording continuing, clearing the entire growing queue is estimated to take **43–47 minutes** after the hour of accumulation.
-- The full cycle would last about 103–107 minutes, with an estimated average power of **2.22–2.27 W**, excluding model startup/shutdown and frequency transitions.
-
-This is a calculation from measurements, not a completed batch-cycle test. It offers little potential improvement over the measured V3/2/600 backlog workload and does not approach V2.4's 1.30 W. Longer accumulation intervals do not by themselves reduce the number of windows analysed. Waiting with a loaded V3 model has not been separately measured and cannot be assigned the recording-only power baseline.
-
-At 48 kHz stereo PCM16, one hour of continuous WAV audio occupies approximately **691.2 MB** before headers. `AUDIOFMT=flac` configures extracted detection clips; it does not mean continuous StreamData recording is FLAC. Power consumption of continuous FLAC archiving has not been measured. Any future batch mode needs disk-space protection and confirmation that every queued file is processed.
-
 ## Recognition comparison and validation limits
 
 A development comparison used 11 saved recordings, 249 seconds of audio and 88 three-second windows. V2.4 and V3 had different top-1 predictions in 51 windows and completely disjoint top-3 predictions in 39. Among 43 windows where at least one model had top-1 confidence of 0.6 or higher, top-1 differed in 9 windows and top-3 was disjoint in 2. No window had different top-1 predictions with confidence of at least 0.6 in both models.
@@ -189,23 +145,15 @@ These figures measure **prediction disagreement**, not which model is more accur
 
 The revised audio preparation was checked for equivalence with the previous pipeline. V3 top-k/output-view optimisation and stereo preparation were also tested against the previous code. An isolated hour-long archive analysis completed 160 files without the earlier OOM failure; later paced pipeline checks included extracted FLAC/PNG files and temporary database output. These checks cover specific stages and conditions, not every live deployment, notification backend or hardware configuration.
 
-## Bird/noise prefilter: future evaluation
-
-A lightweight detector could evaluate all audio and send likely-bird and uncertain windows to V3. Candidate approaches include simple spectral triggers and compact INT8 binary models. No prefilter is currently enabled, and no energy reduction is claimed.
-
-The agreed evaluation uses selected FLAC clips containing birds and retained WAV recordings reported by the operator to contain no birds. File-level labels do not establish the contents of every short window. Tests must measure bird recall, false alarms, processing cost and the proportion of windows that could be excluded. Missed quiet/short calls matter more than overall classification accuracy. Rejected windows should initially still pass through V3 and be sampled for manual listening.
-
-Any decision to skip V3 for negative windows changes analysis coverage and must follow evaluation. Recording-only baseline power remains even if every unnecessary V3 invocation is eliminated.
-
 ## Optional operational telemetry
 
-The development system has a bounded rotating log of CPU utilisation, temperature, frequency/capping flags, RAM/swap activity, analysis/recording processes and queue size/age. This can be included as an optional diagnostic component. It is **not a wattmeter**; USB power/energy comparisons require external measurement.
+The included `scripts/power_metrics.py` helper provides a bounded rotating log of CPU utilisation, temperature, frequency/capping flags, RAM/swap activity, analysis/recording processes and queue size/age. It is **not a wattmeter**; USB power/energy comparisons require external measurement.
 
-Model thread settings in a systemd drop-in persist across reboot. Frequency limits applied through sysfs during experiments do not necessarily persist. A readiness file is valid only when its model and PID match the active analysis process.
+## Validation and limitations
 
-## Release-readiness status
+Export generation/download was tested through the development device's web interface. Isolated tests cover TP/FP changes and removal, preservation of 79,341 detections and 4,050 reviews during database migration, model-download integrity, boot configuration transformations and update failure handling. Privileged service/dependency/model actions were simulated in the updater tests.
 
-V3 and the export controls have been exercised on the development Pi. The complete fork installer, updater, clean-install path, review migration and hardware matrix are still being prepared. This README deliberately records those remaining checks rather than describing an untested release as ready.
+A fresh hardware installation and a complete device upgrade remain untested. Recognition comparisons are not independent accuracy benchmarks, and development measurements do not establish performance on every board. This release does not include a bird/noise prefilter.
 
 The original project description and documentation from Nachtzuster are retained below as an attributed upstream reference. Its installation/migration commands target the original project; use the fork-specific quick-install commands above for this V3 fork.
 
