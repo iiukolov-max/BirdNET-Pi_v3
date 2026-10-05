@@ -1,183 +1,117 @@
-<h1 align="center"><a href="https://github.com/mcguirepr89/BirdNET-Pi/blob/main/LICENSE">Review the license!!</a></h1>
-<h1 align="center">You may not use BirdNET-Pi to develop a commercial product!!!!</h1>
-<h1 align="center">
-  BirdNET-Pi
-</h1>
-<p align="center">
-A realtime acoustic bird classification system for the Raspberry Pi 5, 4B, 400, 3B+, and 0W2
-</p>
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/60325264/140656397-bf76bad4-f110-467c-897d-992ff0f96476.png" />
-</p>
-<p align="center">
-Icon made by <a href="https://www.freepik.com" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a>
-</p>
+# BirdNET-Pi V3
 
-## About this fork:
-I've been building on [mcguirepr89's](https://github.com/mcguirepr89/BirdNET-Pi) most excellent work to further update and improve BirdNET-Pi. Maybe someone will find it useful.
+A development fork of [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), focused on BirdNET V3 integration and manual TP/FP verification of detections.
 
-Changes include:
+> **Development status — not ready for installation.**
+> The BirdNET V3 and TP/FP changes developed for this fork have not yet been published here. The repository currently contains the inherited BirdNET-Pi implementation. Do not use it to install or upgrade to the V3 version.
+>
+> The inherited `newinstaller.sh` currently clones **Nachtzuster/BirdNET-Pi**, not this fork. Downloading that script from this repository does not install BirdNET V3.
 
- - Backup & Restore
- - Web ui is much more responsive
- - Daily charts now include all species, not just top/bottom 10
- - Bump apprise version, so more notification type are possible
- - Swipe events on Daily Charts (by @croisez)
- - Support for 'Species range model V2.4 - V2'
- - Bookworm and Trixie support
- - Experimental support for writing transient files to tmpfs
- - Rework analysis to consolidate analysis/server/extraction. Should make analysis more robust and slightly more efficient, especially on installations with a large number of recordings
- - Bump tflite_runtime to 2.17.1, it is faster
- - Rework daily_plot.py (chart_viewer) to run as a daemon to avoid the very expensive startup
- - Lots of fixes & cleanups
+## About this fork
 
-!! note: see 'Migrating' on how to migrate from mcguirepr89
+The goal is to retain the familiar BirdNET-Pi recording, analysis, and web interface workflow while adding:
 
-## Introduction
-BirdNET-Pi is built on the [BirdNET framework](https://github.com/kahst/BirdNET-Analyzer) by [**@kahst**](https://github.com/kahst) <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg"></a> using [pre-built TFLite binaries](https://github.com/PINTO0309/TensorflowLite-bin) by [**@PINTO0309**](https://github.com/PINTO0309) . It is able to recognize bird sounds from a USB microphone or sound card in realtime and share its data with the rest of the world.
+- **BirdNET V3 integration** for local acoustic bird classification.
+- **Manual verification of detections** as true positives (TP) or false positives (FP).
+- A practical deployment option for Raspberry Pi devices, with particular interest in the **Raspberry Pi Zero 2 W**.
 
-Check out birds from around the world
-- [BirdWeather](https://app.birdweather.com)<br>
+These are the goals of the unpublished fork modifications, not features available in the current public code. Implementation details, supported hardware, and installation instructions will be documented when those modifications are published.
 
-## Features
-* **24/7 recording and automatic identification** of bird songs, chirps, and peeps using BirdNET machine learning
-* **Automatic extraction and cataloguing** of bird clips from full-length recordings
-* **Tools to visualize your recorded bird data** and analyze trends
-* **Live audio stream and spectrogram**
-* **Automatic disk space management** that periodically purges old audio files
-* [BirdWeather](https://app.birdweather.com) integration -- you can request a BirdWeather ID from BirdNET-Pi's "Tools" > "Settings" page
-* Web interface access to all data and logs provided by [Caddy](https://caddyserver.com)
-* [GoTTY](https://github.com/yudai/gotty) and [GoTTY x86](https://github.com/sorenisanerd/gotty) Web Terminal
-* [Tiny File Manager](https://tinyfilemanager.github.io/)
-* FTP server included
-* SQLite3 Database
-* [Adminer](https://www.adminer.org/) database maintenance
-* [phpSysInfo](https://github.com/phpsysinfo/phpsysinfo)
-* [Apprise Notifications](https://github.com/caronc/apprise) supporting 90+ notification platforms
-* Localization supported
+## Detection verification: TP and FP
 
-## Requirements
-* A Raspberry Pi 5, Raspberry 4B, Raspberry Pi 400, Raspberry Pi 3B+, or Raspberry Pi 0W2 (The 3B+ and 0W2 must run on RaspiOS-ARM64-**Lite**)
-* An SD Card with the **_64-bit version of RaspiOS_** installed (please use Trixie) -- Lite is recommended, but the installation works on RaspiOS-ARM64-Full as well. Downloads available within the [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
-* A USB Microphone or Sound Card
+The intended verification workflow lets a user review an audio detection and mark whether the reported species identification is correct:
 
-## Installation
-[A comprehensive installation guide is available here](https://github.com/mcguirepr89/BirdNET-Pi/wiki/Installation-Guide). This guide is slightly out-dated: make sure to pick Bookworm, also the curl command is still pointing to mcguirepr89's repo.
+| Status | Meaning |
+| --- | --- |
+| TP — true positive | A reviewer confirms the detected species in the recording. |
+| FP — false positive | A reviewer determines that the reported species identification is incorrect. |
+| Unreviewed | The detection has not been manually verified. |
 
-Please note that installing BirdNET-Pi on top of other servers is not supported. If this is something that you require, please open a discussion for your idea and inquire about how to contribute to development.
+A confidence score is a model output, not a manual verification result. Unreviewed detections should not be treated as confirmed observations.
 
-[Raspberry Pi 3B[+] and 0W2 installation guide available here](https://github.com/mcguirepr89/BirdNET-Pi/wiki/RPi0W2-Installation-Guide)
+The precise interface, storage format, filtering, and export behavior will be documented against the published implementation. Manual TP/FP labels do not by themselves retrain the model or measure false negatives.
 
-The system can be installed with:
-```
-curl -s https://raw.githubusercontent.com/Nachtzuster/BirdNET-Pi/main/newinstaller.sh | bash
-```
-The installer takes care of any and all necessary updates, so you can run that as the very first command upon the first boot, if you'd like.
+## BirdNET model version
 
-The installation creates a log in `$HOME/installation-$(date "+%F").txt`.
-## Access
-The BirdNET-Pi can be accessed from any web browser on the same network:
-- http://birdnetpi.local OR your Pi's IP address
-- Default Basic Authentication Username: birdnet
-- Password is empty by default. Set this in "Tools" > "Settings" > "Advanced Settings"
+This README uses **BirdNET V3** until the exact model artifact and its provenance can be documented from the implementation.
 
-Please take a look at the [wiki](https://github.com/mcguirepr89/BirdNET-Pi/wiki) and [discussions](https://github.com/mcguirepr89/BirdNET-Pi/discussions) for information on
-- [BirdNET-Pi's Deep Convolutional Neural Network(s)](https://github.com/mcguirepr89/BirdNET-Pi/wiki/BirdNET-Pi:-some-theory-on-classification-&-some-practical-hints)
-- [making your installation public](https://github.com/mcguirepr89/BirdNET-Pi/wiki/Sharing-Your-BirdNET-Pi)
-- [backing up and restoring your database](https://github.com/mcguirepr89/BirdNET-Pi/wiki/Backup-and-Restore-the-Database)
-- [adjusting your sound card settings](https://github.com/mcguirepr89/BirdNET-Pi/wiki/Adjusting-your-sound-card)
-- [suggested USB microphones](https://github.com/mcguirepr89/BirdNET-Pi/discussions/39)
-- [building your own microphone](https://github.com/DD4WH/SASS/wiki/Stereo--(Mono)-recording-low-noise-low-cost-system)
-- [privacy concerns and options](https://github.com/mcguirepr89/BirdNET-Pi/discussions/166)
-- [beta testing](https://github.com/mcguirepr89/BirdNET-Pi/discussions/11)
-- [and more!](https://github.com/mcguirepr89/BirdNET-Pi/discussions)
+Before a release, the documentation should identify:
 
+- The exact acoustic model version and download source.
+- The model filename and checksum.
+- The inference runtime and required dependencies.
+- Any geographic/species-range model used and its separate version.
+- How to verify which model an installation actually loads.
 
-## Updating 
+The repository name, description, and this README are not evidence of the installed model version.
 
-Use the web interface and go to "Tools" > "System Controls" > "Update". If you encounter any issues with that, or suspect that the update did not work for some reason, please save its output and post it in an issue where we can help.
+## Features inherited from BirdNET-Pi
 
-## Backup and Restore
-Use the web interface and go to "Tools" > "System Controls" > "Backup" or "Restore". Backup/Restore is primary meant for migrating your data for one system to another. Since the time required to create or restore a backup depends on the size of the data set and the speed of the storage, this could take quite a while.
+The upstream BirdNET-Pi system provides:
 
-Alternatively, the backup script can be used directly. These examples assume the backup medium is mounted on `/mnt`
+- Continuous recording and automatic bird sound identification.
+- Extraction and cataloguing of detection audio clips.
+- A web interface with charts and recorded detection data.
+- Live audio and spectrogram viewing.
+- Automatic disk space management.
+- SQLite storage and database administration tools.
+- Backup and restore.
+- BirdWeather integration and Apprise notifications.
+- Localization of bird names and interface components.
 
-To backup:
-```commandline
-./scripts/backup_data.sh -a backup -f /mnt/birds/backup-2024-07-09.tar
-```
-To restore:
-```commandline
-./scripts/backup_data.sh -a restore -f /mnt/birds/backup-2024-07-09.tar
-```
+Nachtzuster's fork also includes improvements to the web interface, analysis pipeline, daily charts, backup/restore, and support for newer operating systems. See the [upstream repository](https://github.com/Nachtzuster/BirdNET-Pi) for its current documentation.
 
-## x86_64 support
-x86_64 support is mainly there for developers or otherwise more Linux savvy people.
-That being said, some pointers:
-- Use Debian 12 or 13
-- The user needs passwordless sudo
+## Hardware and operating system
 
-For Proxmox, a user has reported adding this in their `cpu-models.conf`, in order for the custom TFLite build to work.
-```
-cpu-model: BirdNet
-    flags +sse4.1
-    reported-model host
-```
+The inherited upstream documentation lists Raspberry Pi 5, 4B, 400, 3B+, and Zero 2 W, with a 64-bit Raspberry Pi OS and a USB microphone or sound card.
 
-## Uninstallation
-```
-/usr/local/bin/uninstall.sh && cd ~ && rm -drf BirdNET-Pi
-```
-## Migrating
-Before switching, make sure your installation is fully up-to-date. Also make sure to have a backup, that is also the only way to get back to the original BirdNET-Pi.
-Please note that upgrading your underlying OS to Bookworm is not going to work. Please stick to Bullseye. If you do want Bookworm, you need to start from a fresh install and copy back your data. (remember the backup!)
+**That upstream hardware list is not a compatibility guarantee for the unpublished V3 implementation.** Model runtime requirements, memory use, processing speed, and operating system support must be checked separately.
 
-Run these commands to migrate to this repo:
-```
-git remote remove origin
-git remote add origin https://github.com/Nachtzuster/BirdNET-Pi.git
-./scripts/update_birdnet.sh
-```
-## Troubleshooting and Ideas
-*Hint: A lot of weird problems can be solved by simply restarting the core services. Do this from the web interface "Tools" > "Services" > "Restart Core Services"
-Having trouble or have an idea? *Submit an issue for trouble* and a *discussion for ideas*. Please do *not* submit an issue as a discussion -- the issue tracker solicits information that is needed for anyone to help -- discussions are *not for issues*.
+For Zero 2 W, release documentation should include the tested operating system, runtime, memory configuration, and whether analysis keeps up with continuous recording. Compatibility results for other boards will be listed when available.
 
-PLEASE search the repo for your issue before creating a new one. This repo has nothing to do with the validity of the detection results, so please do not start any issues around "False positives."
+## Installation and migration
 
-## Sharing
-Please join a Discussion!! and please join [BirdWeather!!](https://app.birdweather.com)
-I hope that if you find BirdNET-Pi has been worth your time, you will share your setup, results, customizations, etc. [HERE](https://github.com/mcguirepr89/BirdNET-Pi/discussions/69) and will consider [making your installation public](https://github.com/mcguirepr89/BirdNET-Pi/wiki/Sharing-Your-BirdNET-Pi).
+Installation and migration instructions for **this fork** are not available yet.
 
-## Homeassistant addon
+Do not switch an existing installation's remote or run its update script expecting to obtain BirdNET V3 or TP/FP verification from the current public repository.
 
-BirdNET-Pi can also be run as a [Homeassistant](https://www.home-assistant.io/) addon through docker.
-For more information : https://github.com/alexbelgium/hassio-addons/blob/master/birdnet-pi/README.md
+Before installation instructions are published, the installer and updater need to be checked to ensure they use this repository and install the correct model and dependencies. Migration instructions also need to cover preservation of recordings, configuration, detection data, and verification labels.
 
-## Docker
+For the existing upstream version, use [Nachtzuster's documentation](https://github.com/Nachtzuster/BirdNET-Pi). Those instructions install upstream BirdNET-Pi, not the planned V3 version of this fork.
 
-BirdNET-Pi can also be run as as a docker container.
-For more information : https://github.com/alexbelgium/hassio-addons/blob/master/birdnet-pi/README_standalone.md
+## Known limitations
 
-## Cool Links
+- BirdNET V3 and TP/FP modifications are not yet present in this public repository.
+- The inherited installer points to the upstream Nachtzuster repository.
+- The exact V3 model artifact and runtime are not yet documented here.
+- V3 hardware compatibility and performance results are not yet published.
+- Automatic identifications can be incorrect and require review for uses that depend on confirmed records.
 
-- [Marie Lelouche's <i>Out of Spaces</i>](https://www.lestanneries.fr/exposition/marie-lelouche-out-of-spaces/) using BirdNET-Pi in post-sculpture VR! [Press Kit](https://github.com/mcguirepr89/BirdNET-Pi-assets/blob/main/dp_out_of_spaces_marie_lelouche_digital_05_01_22.pdf)
-- [Research on noded BirdNET-Pi networks for farming](https://github.com/mcguirepr89/BirdNET-Pi-assets/blob/main/G23_Report_ModelBasedSysEngineering_FarmMarkBirdDetector_V1__Copy_.pdf)
-- [PixCams Build Guide](https://pixcams.com/building-a-birdnet-pi-real-time-acoustic-bird-id-station/)
-- [Core-Electronics](https://core-electronics.com.au/projects/bird-calls-raspberry-pi) Build Article
-- [RaspberryPi.com Blog Post](https://www.raspberrypi.com/news/classify-birds-acoustically-with-birdnet-pi/)
-- [MagPi Issue 119 Showcase Article](https://magpi.raspberrypi.com/issues/119/pdf)
+## Reporting issues
 
+Use [this fork's issue tracker](https://github.com/iiukolov-max/BirdNET-Pi_v3/issues) for problems specific to this fork.
 
-### Internationalization:
-The bird names are in English by default, but other localized versions are available thanks to the wonderful efforts of [@patlevin](https://github.com/patlevin) and Wikipedia. Use the web interface's "Tools" > "Settings" and select your "Database Language" to have the detections in your language.
+Include the commit or release, Raspberry Pi model, operating system, model/runtime versions, reproduction steps, and relevant logs. Remove passwords, tokens, and private information before posting.
 
-[Internationalization](docs/translations.md)
+## Credits and licensing
 
+This project builds on:
 
-## Screenshots
-![Overview](docs/overview.png)
-![Spectrogram](docs/spectrogram.png)
+- [BirdNET-Pi by Patrick McGuire](https://github.com/mcguirepr89/BirdNET-Pi).
+- [Nachtzuster's BirdNET-Pi fork](https://github.com/Nachtzuster/BirdNET-Pi).
+- [BirdNET-Analyzer](https://github.com/kahst/BirdNET-Analyzer) and the BirdNET research team at the K. Lisa Yang Center for Conservation Bioacoustics, Cornell Lab of Ornithology.
+- [Pre-built TFLite binaries by PINTO0309](https://github.com/PINTO0309/TensorflowLite-bin) used by the inherited project.
+- The upstream contributors and third-party projects credited in the original repository and [LICENSE](LICENSE).
 
+The existing [LICENSE](LICENSE) and upstream attribution are retained. The inherited license identifies BirdNET-Lite and BirdNET-Pi as licensed under **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International** and includes notices for third-party components.
 
-## :thinking:
-Are you a lucky ducky with a spare Raspberry Pi? [Try Folding@home!](https://foldingathome.org/)
+Review the license before use. The upstream project explicitly prohibits using BirdNET-Pi to develop a commercial product. Any newly integrated model or dependency must also be used and distributed under its applicable license.
+
+BirdNET-Pi logo: icon by [Freepik](https://www.freepik.com) from [Flaticon](https://www.flaticon.com).
+
+## Upstream screenshots
+
+The screenshots below illustrate the inherited BirdNET-Pi interface, not the unpublished V3 or TP/FP functionality.
+
+![BirdNET-Pi overview](docs/overview.png)
+![BirdNET-Pi spectrogram](docs/spectrogram.png)
