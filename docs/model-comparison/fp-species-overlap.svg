@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="972pt" height="708.053976pt" viewBox="0 0 972 708.053976" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-10-05T21:40:15.564743</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.8, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 708.053976 
+L 972 708.053976 
+L 972 0 
+L 0 0 
+z
+" style="fill: #f5f8fb"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 7.2 682.8372 
+L 312.168153 682.8372 
+L 312.168153 96.57 
+L 7.2 96.57 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="matplotlib.axis_1"/>
+   <g id="matplotlib.axis_2"/>
+   <g id="text_1">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #718e9f" x="25.498089" y="81.91332" transform="rotate(-0 25.498089 81.91332)">Shared between models</text>
+   </g>
+   <g id="text_2">
+    <text style="font-weight: 700; font-size: 18px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #718e9f" x="25.498089" y="96.57" transform="rotate(-0 25.498089 96.57)">18 species</text>
+   </g>
+   <g id="text_3">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="120.681396" transform="rotate(-0 25.498089 120.681396)">Aegolius funereus</text>
+   </g>
+   <g id="text_4">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="141.61951" transform="rotate(-0 25.498089 141.61951)">Anthus trivialis</text>
+   </g>
+   <g id="text_5">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="162.557624" transform="rotate(-0 25.498089 162.557624)">Athene noctua</text>
+   </g>
+   <g id="text_6">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="183.495738" transform="rotate(-0 25.498089 183.495738)">Dryocopus martius</text>
+   </g>
+   <g id="text_7">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="204.433853" transform="rotate(-0 25.498089 204.433853)">Emberiza pusilla</text>
+   </g>
+   <g id="text_8">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="225.371967" transform="rotate(-0 25.498089 225.371967)">Emberiza rustica</text>
+   </g>
+   <g id="text_9">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="246.310081" transform="rotate(-0 25.498089 246.310081)">Fulica atra</text>
+   </g>
+   <g id="text_10">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="267.248196" transform="rotate(-0 25.498089 267.248196)">Gallinula chloropus</text>
+   </g>
+   <g id="text_11">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="288.18631" transform="rotate(-0 25.498089 288.18631)">Loxia pytyopsittacus</text>
+   </g>
+   <g id="text_12">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="309.124424" transform="rotate(-0 25.498089 309.124424)">Motacilla cinerea</text>
+   </g>
+   <g id="text_13">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="330.062538" transform="rotate(-0 25.498089 330.062538)">Muscicapa striata</text>
+   </g>
+   <g id="text_14">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="351.000653" transform="rotate(-0 25.498089 351.000653)">Nycticorax nycticorax</text>
+   </g>
+   <g id="text_15">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="371.938767" transform="rotate(-0 25.498089 371.938767)">Otus scops</text>
+   </g>
+   <g id="text_16">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="392.876881" transform="rotate(-0 25.498089 392.876881)">Phoenicurus phoenicurus</text>
+   </g>
+   <g id="text_17">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="413.814996" transform="rotate(-0 25.498089 413.814996)">Poecile palustris</text>
+   </g>
+   <g id="text_18">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="434.75311" transform="rotate(-0 25.498089 434.75311)">Porzana porzana</text>
+   </g>
+   <g id="text_19">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="455.691224" transform="rotate(-0 25.498089 455.691224)">Rallus aquaticus</text>
+   </g>
+   <g id="text_20">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="25.498089" y="476.629338" transform="rotate(-0 25.498089 476.629338)">Regulus ignicapilla</text>
+   </g>
+  </g>
+  <g id="axes_2">
+   <g id="patch_3">
+    <path d="M 333.515924 682.8372 
+L 638.484076 682.8372 
+L 638.484076 96.57 
+L 333.515924 96.57 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="matplotlib.axis_3"/>
+   <g id="matplotlib.axis_4"/>
+   <g id="text_21">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #337eae" x="351.814013" y="81.91332" transform="rotate(-0 351.814013 81.91332)">Only v2.4</text>
+   </g>
+   <g id="text_22">
+    <text style="font-weight: 700; font-size: 18px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #337eae" x="351.814013" y="96.57" transform="rotate(-0 351.814013 96.57)">13 species</text>
+   </g>
+   <g id="text_23">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="120.681396" transform="rotate(-0 351.814013 120.681396)">Alcedo atthis</text>
+   </g>
+   <g id="text_24">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="141.61951" transform="rotate(-0 351.814013 141.61951)">Anthus hodgsoni</text>
+   </g>
+   <g id="text_25">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="162.557624" transform="rotate(-0 351.814013 162.557624)">Branta leucopsis</text>
+   </g>
+   <g id="text_26">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="183.495738" transform="rotate(-0 351.814013 183.495738)">Caprimulgus europaeus</text>
+   </g>
+   <g id="text_27">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="204.433853" transform="rotate(-0 351.814013 204.433853)">Certhia brachydactyla</text>
+   </g>
+   <g id="text_28">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="225.371967" transform="rotate(-0 351.814013 225.371967)">Lagopus lagopus</text>
+   </g>
+   <g id="text_29">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="246.310081" transform="rotate(-0 351.814013 246.310081)">Numenius arquata</text>
+   </g>
+   <g id="text_30">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="267.248196" transform="rotate(-0 351.814013 267.248196)">Panurus biarmicus</text>
+   </g>
+   <g id="text_31">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="288.18631" transform="rotate(-0 351.814013 288.18631)">Parus major</text>
+   </g>
+   <g id="text_32">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="309.124424" transform="rotate(-0 351.814013 309.124424)">Perdix perdix</text>
+   </g>
+   <g id="text_33">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="330.062538" transform="rotate(-0 351.814013 330.062538)">Phylloscopus proregulus</text>
+   </g>
+   <g id="text_34">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="351.000653" transform="rotate(-0 351.814013 351.000653)">Pluvialis apricaria</text>
+   </g>
+   <g id="text_35">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="351.814013" y="371.938767" transform="rotate(-0 351.814013 371.938767)">Strix nebulosa</text>
+   </g>
+  </g>
+  <g id="axes_3">
+   <g id="patch_4">
+    <path d="M 659.831847 682.8372 
+L 964.8 682.8372 
+L 964.8 96.57 
+L 659.831847 96.57 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="matplotlib.axis_5"/>
+   <g id="matplotlib.axis_6"/>
+   <g id="text_36">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #e38a36" x="678.129936" y="81.91332" transform="rotate(-0 678.129936 81.91332)">Only v3</text>
+   </g>
+   <g id="text_37">
+    <text style="font-weight: 700; font-size: 18px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #e38a36" x="678.129936" y="96.57" transform="rotate(-0 678.129936 96.57)">27 species</text>
+   </g>
+   <g id="text_38">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="120.681396" transform="rotate(-0 678.129936 120.681396)">Anthus richardi</text>
+   </g>
+   <g id="text_39">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="141.61951" transform="rotate(-0 678.129936 141.61951)">Ardea alba</text>
+   </g>
+   <g id="text_40">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="162.557624" transform="rotate(-0 678.129936 162.557624)">Asio otus</text>
+   </g>
+   <g id="text_41">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="183.495738" transform="rotate(-0 678.129936 183.495738)">Astur cooperii</text>
+   </g>
+   <g id="text_42">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="204.433853" transform="rotate(-0 678.129936 204.433853)">Branta bernicla</text>
+   </g>
+   <g id="text_43">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="225.371967" transform="rotate(-0 678.129936 225.371967)">Branta canadensis</text>
+   </g>
+   <g id="text_44">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="246.310081" transform="rotate(-0 678.129936 246.310081)">Bubo bubo</text>
+   </g>
+   <g id="text_45">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="267.248196" transform="rotate(-0 678.129936 267.248196)">Cettia cetti</text>
+   </g>
+   <g id="text_46">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="288.18631" transform="rotate(-0 678.129936 288.18631)">Clangula hyemalis</text>
+   </g>
+   <g id="text_47">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="309.124424" transform="rotate(-0 678.129936 309.124424)">Coturnix coturnix</text>
+   </g>
+   <g id="text_48">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="330.062538" transform="rotate(-0 678.129936 330.062538)">Cuculus canorus</text>
+   </g>
+   <g id="text_49">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="351.000653" transform="rotate(-0 678.129936 351.000653)">Emberiza hortulana</text>
+   </g>
+   <g id="text_50">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="371.938767" transform="rotate(-0 678.129936 371.938767)">Ficedula parva</text>
+   </g>
+   <g id="text_51">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="392.876881" transform="rotate(-0 678.129936 392.876881)">Gavia immer</text>
+   </g>
+   <g id="text_52">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="413.814996" transform="rotate(-0 678.129936 413.814996)">Lophophanes cristatus</text>
+   </g>
+   <g id="text_53">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="434.75311" transform="rotate(-0 678.129936 434.75311)">Loxia leucoptera</text>
+   </g>
+   <g id="text_54">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="455.691224" transform="rotate(-0 678.129936 455.691224)">Oriolus oriolus</text>
+   </g>
+   <g id="text_55">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="476.629338" transform="rotate(-0 678.129936 476.629338)">Phylloscopus trochiloides</text>
+   </g>
+   <g id="text_56">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="497.567453" transform="rotate(-0 678.129936 497.567453)">Phylloscopus trochilus</text>
+   </g>
+   <g id="text_57">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="518.505567" transform="rotate(-0 678.129936 518.505567)">Pinicola enucleator</text>
+   </g>
+   <g id="text_58">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="539.443681" transform="rotate(-0 678.129936 539.443681)">Plectrophenax nivalis</text>
+   </g>
+   <g id="text_59">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="560.381796" transform="rotate(-0 678.129936 560.381796)">Scolopax rusticola</text>
+   </g>
+   <g id="text_60">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="581.31991" transform="rotate(-0 678.129936 581.31991)">Tetrao urogallus</text>
+   </g>
+   <g id="text_61">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="602.258024" transform="rotate(-0 678.129936 602.258024)">Tringa ochropus</text>
+   </g>
+   <g id="text_62">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="623.196138" transform="rotate(-0 678.129936 623.196138)">Turdus torquatus</text>
+   </g>
+   <g id="text_63">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="644.134253" transform="rotate(-0 678.129936 644.134253)">Tyto furcata</text>
+   </g>
+   <g id="text_64">
+    <text style="font-style: italic; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #213547" x="678.129936" y="665.072367" transform="rotate(-0 678.129936 665.072367)">Vanellus vanellus</text>
+   </g>
+  </g>
+  <g id="text_65">
+   <text style="font-weight: 700; font-size: 23px; font-family: 'DejaVu Sans'; text-anchor: middle" x="486" y="24.676406" transform="rotate(-0 486 24.676406)">FP-only bird species</text>
+  </g>
+  <g id="text_66">
+   <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #536577" x="486" y="42.948" transform="rotate(-0 486 42.948)">At least one reviewed FP and no reviewed TP, classified separately for each model</text>
+  </g>
+  <g id="text_67">
+   <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #536577" x="486" y="698.56632" transform="rotate(-0 486 698.56632)">27 Sep–2 Oct 2026 · reviewed records only · bird species only</text>
+  </g>
+ </g>
+</svg>
