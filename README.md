@@ -2,7 +2,7 @@
 
 BirdNET-Pi V3 extends [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi) with BirdNET V3 Preview support, manual detection verification and a reviewed-detections export available from the web interface.
 
-This file is a working draft for a preview release. Installer and updater code has been prepared and checked in isolation; a fresh installation and a complete device update have not yet been tested. The release tag and installation command have not been finalised.
+The first preview release is [v3-preview.1](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases/tag/v3-preview.1). Installer and updater code has been checked in isolation; a fresh hardware installation and a complete device update have not yet been tested.
 
 ## Changes in this fork
 
@@ -63,6 +63,33 @@ The existing `export_birddb_verified.py` is included **without changes**. The we
 Export generation and downloading have been tested through the real web interface. The unchanged exporter currently uses fixed paths under `/home/pi/BirdNET-Pi`; the initial installation contract must account for this.
 
 ## Installation and model downloads
+
+### Quick installation — no Git knowledge required
+
+1. Use Raspberry Pi Imager to prepare **Raspberry Pi OS Lite 64-bit** on a new SD card. Create the user **`pi`**, enable SSH and configure your network. The installer currently requires `/home/pi` and passwordless sudo. Python 3.11, 3.12 or 3.13 is required; the hardware installation remains a preview.
+2. Log in to the Raspberry Pi as `pi`, then copy and run this single command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/main/newinstaller.sh -o birdnet-install.sh && bash birdnet-install.sh
+```
+
+The command downloads the installer and runs it only if the download succeeds. The installer installs Git and other dependencies itself, retrieves this fork, downloads and verifies the V3 model, and configures the application. You do not need to clone a repository or run Git commands yourself.
+
+**For a Raspberry Pi Zero 2 W used without a display or camera**, use this command instead. It explicitly enables the headless memory profile (`cma=0`, `gpu_mem=16`) and backs up the boot files:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/main/newinstaller.sh -o birdnet-install.sh && bash birdnet-install.sh --zero2-headless
+```
+
+3. When installation completes successfully, reboot with `sudo reboot`. Open `http://<your-Pi-hostname>.local` in a browser on the same network, or use the Pi's IP address. In **Tools → Settings**, check location and recording-device settings. Confirm that recording and V3 analysis are working; on Zero 2 W also verify the headless boot profile after reboot.
+
+These commands install the current `main` version. To install the published Preview 1 specifically, use:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.1/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.1 bash birdnet-install.sh
+```
+
+For an existing BirdNET-Pi installation, keep its recordings and database in place. The fresh installer deliberately refuses to overwrite it; see [updates and migration](docs/UPDATES_AND_RECOVERY.md).
 
 The installer will deploy this fork, its dependencies and services, initialise or migrate review storage, and install the export controls.
 
@@ -180,7 +207,7 @@ Model thread settings in a systemd drop-in persist across reboot. Frequency limi
 
 V3 and the export controls have been exercised on the development Pi. The complete fork installer, updater, clean-install path, review migration and hardware matrix are still being prepared. This README deliberately records those remaining checks rather than describing an untested release as ready.
 
-The original project description and documentation from Nachtzuster are retained below as an attributed upstream reference. Its installation/migration commands target the original project; they are not installation instructions for this V3 fork. The fork-specific installation command will be added after validation, and inherited links will be audited before publication.
+The original project description and documentation from Nachtzuster are retained below as an attributed upstream reference. Its installation/migration commands target the original project; use the fork-specific quick-install commands above for this V3 fork.
 
 ---
 
