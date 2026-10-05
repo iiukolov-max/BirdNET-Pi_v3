@@ -29,19 +29,9 @@ The raw detection increase is **3.38× (+238%)**; confirmed species increase is 
 
 The FP-only lists are model-specific. **Parus major is FP-only in V2.4 (one FP, no TP), but TP-confirmed in V3 (91 TP, no marked FP).** It therefore belongs to V2.4's exclusive FP-only list and V3's exclusive TP list. In an earlier combined report, all species confirmed by either model were removed from its false-species table; that produced 30 rather than 31 V2.4 FP species. Here the requested per-model classification is used consistently.
 
-### TP-confirmed species lists
+### TP-confirmed species: shared and exclusive lists
 
-**Shared TP-confirmed species (43)**
-
-`Acanthis flammea`, `Aegithalos caudatus`, `Anas platyrhynchos`, `Anser albifrons`, `Anser anser`, `Ardea cinerea`, `Bombycilla garrulus`, `Botaurus stellaris`, `Buteo buteo`, `Carduelis carduelis`, `Certhia familiaris`, `Chloris chloris`, `Chroicocephalus ridibundus`, `Coccothraustes coccothraustes`, `Corvus corax`, `Cyanistes caeruleus`, `Dendrocopos leucotos`, `Dryobates minor`, `Emberiza schoeniclus`, `Erithacus rubecula`, `Fringilla coelebs`, `Fringilla montifringilla`, `Gallinago gallinago`, `Garrulus glandarius`, `Linaria cannabina`, `Motacilla alba`, `Periparus ater`, `Phylloscopus collybita`, `Pica pica`, `Poecile montanus`, `Prunella modularis`, `Pyrrhula pyrrhula`, `Regulus regulus`, `Sitta europaea`, `Spinus spinus`, `Strix aluco`, `Tetrastes bonasia`, `Troglodytes troglodytes`, `Turdus iliacus`, `Turdus merula`, `Turdus philomelos`, `Turdus pilaris`, `Turdus viscivorus`
-
-**TP-confirmed only by V2.4 (1)**
-
-`Glaucidium passerinum`
-
-**TP-confirmed only by V3 (14)**
-
-`Alauda arvensis`, `Anser serrirostris`, `Anthus cervinus`, `Anthus pratensis`, `Botaurus minutus`, `Coloeus monedula`, `Corvus cornix`, `Dendrocopos major`, `Emberiza citrinella`, `Loxia curvirostra`, `Lyrurus tetrix`, `Nucifraga caryocatactes`, `Parus major`, `Strix uralensis`
+![All TP-confirmed species, grouped into shared, only V2.4 and only V3](https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/main/docs/model-comparison/tp-species-overlap.svg)
 
 "Confirmed only" describes the available review marks; it does not automatically establish a false negative in the other model. The other model may have unreviewed or FP-labelled detections.
 
@@ -417,6 +407,8 @@ Thresholds are applied to individual detections before interval aggregation. The
 At 0.80, V3 retains 585 TP bins versus 272 for V2.4, with reviewed FP proportions of 2.16% and 2.30%. At 0.90, the counts are 336 versus 151 and FP proportions 1.13% versus 1.90%. This suggests a useful trade-off in the current reviewed data, but confidence scores are not calibrated between models and these thresholds have not been independently validated. Zero marked FP at 0.95 in V3 means zero in the reviewed subset, not guaranteed error-free output.
 
 ## One comparison of FP-only species
+
+![All FP-only bird species, grouped into shared, only V2.4 and only V3](https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/main/docs/model-comparison/fp-species-overlap.svg)
 
 These species are not included in separate detailed false-species charts. The following single table combines both FP-only lists, indicates shared/exclusive membership and gives maximum confidence among reviewed FP. A species can have FP-only status in one model but TP in the other.
 
