@@ -1,4 +1,5 @@
 import logging
+import json
 import os
 import os.path
 import re
@@ -18,8 +19,21 @@ from utils.reporting import extract_detection, summary, write_to_file, write_to_
     update_json_file
 
 shutdown = False
+ready_published = False
+instance_lock = None
 
 log = logging.getLogger(__name__)
+
+
+def acquire_instance_lock():
+    """Prevent manual launches from creating a second analyzer/model copy."""
+    import fcntl
+    global instance_lock
+    instance_lock = open(os.path.expanduser('~/BirdNET-Pi/.analysis-instance.lock'), 'a')
+    try:
+        fcntl.flock(instance_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        raise SystemExit('Another BirdNET analyzer is already running')
 
 
 def sig_handler(sig_num, curr_stack_frame):
@@ -81,6 +95,7 @@ def main():
 
 
 def process_file(file_name, report_queue):
+    global ready_published
     try:
         if os.path.getsize(file_name) == 0:
             os.remove(file_name)
@@ -90,6 +105,12 @@ def process_file(file_name, report_queue):
             analyzing.write(file_name)
         file = ParseFileName(file_name)
         detections = run_analysis(file)
+        if not ready_published:
+            ready_path = os.path.expanduser('~/BirdNET-Pi/.model-ready.json')
+            with open(ready_path + '.tmp', 'w') as ready:
+                json.dump({'pid': os.getpid(), 'model': get_settings()['MODEL']}, ready)
+            os.replace(ready_path + '.tmp', ready_path)
+            ready_published = True
         # we join() to make sure te reporting queue does not get behind
         if not report_queue.empty():
             log.warning('reporting queue not yet empty')
@@ -142,6 +163,7 @@ def setup_logging():
 
 
 if __name__ == '__main__':
+    acquire_instance_lock()
     signal.signal(signal.SIGINT, sig_handler)
     signal.signal(signal.SIGTERM, sig_handler)
 

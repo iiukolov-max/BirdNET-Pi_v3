@@ -61,11 +61,57 @@ function update() {
 </div>
 <div><a href="scripts/backup.php" download ><button onclick="return confirm('Download backup? Note that this could take a long time.')">Backup data</button></a></div>
 <?php
+if (!isset($_SESSION['verified_export_token'])) {
+  $_SESSION['verified_export_token'] = bin2hex(random_bytes(32));
+}
+?>
+<style>
+.systemcontrols .verified-export { text-align: center; }
+.systemcontrols .verified-export h3,
+.systemcontrols .verified-export p { width: 50%; margin: 12px auto; overflow-wrap: anywhere; }
+.systemcontrols .verified-export h3 { margin-top: 28px; }
+@media screen and (max-width: 1000px) {
+  .systemcontrols .verified-export h3,
+  .systemcontrols .verified-export p { width: 60%; }
+}
+@media screen and (max-width: 800px) {
+  .systemcontrols .verified-export h3,
+  .systemcontrols .verified-export p { width: 80%; }
+}
+</style>
+<div class="verified-export">
+  <h3>Detection review export</h3>
+  <p>Export all detections, including TP, FP and unreviewed records.</p>
+  <button type="button" id="verified-export-run">Generate BirdDB_verified.txt</button>
+  <a href="scripts/verified_export.php?action=download" download="BirdDB_verified.txt" id="verified-export-download"><button type="button">Download BirdDB_verified.txt</button></a>
+  <p id="verified-export-status" role="status" aria-live="polite"></p>
+</div>
+<script>
+document.getElementById('verified-export-run').addEventListener('click', async function () {
+  const button = this;
+  const status = document.getElementById('verified-export-status');
+  button.disabled = true;
+  status.textContent = 'Generating export…';
+  try {
+    const body = new URLSearchParams({token: <?php echo json_encode($_SESSION['verified_export_token']); ?>});
+    const response = await fetch('scripts/verified_export.php?action=run', {method: 'POST', body});
+    if (response.status === 401) throw new Error('Sign in to Tools to export detections.');
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.message || 'Export failed.');
+    status.textContent = 'Export ready: ' + result.rows + ' records. Use Download to save the file.';
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+</script>
+<?php
   $cmd="cd ".$home."/BirdNET-Pi && sudo -u ".$user." git rev-list --max-count=1 HEAD";
   $curr_hash = shell_exec($cmd);
 ?>
   <p style="font-size:11px;text-align:center"></br></br>Running version: </p>
-  <a href="https://github.com/Nachtzuster/BirdNET-Pi/commit/<?php echo $curr_hash; ?>" target="_blank">
+  <a href="https://github.com/iiukolov-max/BirdNET-Pi_v3/commit/<?php echo $curr_hash; ?>" target="_blank">
     <p style="font-size:11px;text-align:center;box-sizing: border-box"><?php echo $curr_hash; ?></p>
   </a>
   <pre id="console" style="text-align:center"></pre>

@@ -1,56 +1,53 @@
 #!/usr/bin/env bash
-
-if [ "$EUID" == 0 ]
-  then echo "Please run as a non-root user."
-  exit
-fi
-
-if [ "$(uname -m)" != "aarch64" ] && [ "$(uname -m)" != "x86_64" ];then
-  echo "BirdNET-Pi requires a 64-bit OS.
-It looks like your operating system is using $(uname -m),
-but would need to be aarch64."
+set -euo pipefail
+# Fresh installations only; never reinstall over user data.
+headless=0
+case "${1:-}" in
+  '') ;;
+  --zero2-headless) headless=1 ;;
+  *) echo "Usage: $0 [--zero2-headless]" >&2; exit 2 ;;
+esac
+if [ "$EUID" = 0 ] || [ "$(id -un)" != pi ] || [ "$HOME" != /home/pi ]; then
+  echo 'Run as user pi with home /home/pi (required by the unchanged export script).' >&2
   exit 1
 fi
-
-PY_VERSION=$(python3 -c "import sys; print(f'{sys.version_info[0]}{sys.version_info[1]}')")
-if [ "${PY_VERSION}" == "39" ] ;then
-  echo "### BirdNET-Pi requires a newer OS. Bullseye is deprecated, please use Bookworm. ###"
-  [ -z "${FORCE_BULLSEYE}" ] && exit
+target="$HOME/BirdNET-Pi"
+if [ -e "$target" ] || [ -L "$target" ] || [ -e /etc/birdnet/birdnet.conf ]; then
+  echo 'Existing installation found. Nothing was changed. Use the migration procedure.' >&2
+  exit 1
 fi
-
-# we require passwordless sudo
-sudo -K
-if ! sudo -n true; then
-    echo "Passwordless sudo is not working. Aborting"
-    exit
-fi
-
-# Simple new installer
-HOME=$HOME
-USER=$USER
-
-export HOME=$HOME
-export USER=$USER
-
-PACKAGES_MISSING=
-for cmd in git jq ; do
-  if ! which $cmd &> /dev/null;then
-      PACKAGES_MISSING="${PACKAGES_MISSING} $cmd"
+case "$(uname -m)" in
+  aarch64|x86_64) ;;
+  *) echo 'A 64-bit operating system is required.' >&2; exit 1 ;;
+esac
+python_version=$(python3 -c 'import sys; print("%s.%s" % sys.version_info[:2])')
+case "$python_version" in
+  3.11|3.12|3.13) ;;
+  *) echo "Unsupported Python: $python_version." >&2; exit 1 ;;
+esac
+if [ "$headless" = 1 ]; then
+  if ! grep -aq 'Raspberry Pi Zero 2' /proc/device-tree/model 2>/dev/null; then
+    echo '--zero2-headless is only supported on Raspberry Pi Zero 2 W.' >&2
+    exit 1
   fi
+  echo 'Selected headless profile disables graphics/camera and CMA; boot files will be backed up.'
+fi
+sudo -n true || { echo 'Passwordless sudo is required.' >&2; exit 1; }
+packages=()
+for command in git jq; do
+  command -v "$command" >/dev/null || packages+=("$command")
 done
-if [[ ! -z $PACKAGES_MISSING ]] ; then
-  sudo apt update
-  sudo apt -y install $PACKAGES_MISSING
+if [ "${#packages[@]}" -gt 0 ]; then
+  sudo apt-get update
+  sudo apt-get install -y "${packages[@]}"
 fi
-
-branch=main
-git clone -b $branch --depth=1 https://github.com/Nachtzuster/BirdNET-Pi.git ${HOME}/BirdNET-Pi &&
-
-$HOME/BirdNET-Pi/scripts/install_birdnet.sh
-if [ ${PIPESTATUS[0]} -eq 0 ];then
-  echo "Installation completed successfully"
-  sudo reboot
-else
-  echo "The installation exited unsuccessfully."
-  exit 1
+release_ref="${BIRDNET_FORK_REF:-main}"
+git clone --depth 1 --branch "$release_ref" https://github.com/iiukolov-max/BirdNET-Pi_v3.git "$target"
+git -C "$target" config remote.origin.fetch '+refs/heads/main:refs/remotes/origin/main'
+export BIRDNET_ZERO2_HEADLESS="$headless"
+bash "$target/scripts/install_birdnet.sh"
+echo 'Installation steps completed. Reboot, then verify recording, model readiness and the web interface.'
+if [ "$headless" = 1 ]; then
+  echo 'The headless profile takes effect after reboot; check CmaTotal in /proc/meminfo.'
 fi
+echo 'No automatic reboot was requested.'

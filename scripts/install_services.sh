@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # This installs the services that have been selected
-set -x # Uncomment to enable debugging
+set +x # Configuration can contain credentials; keep it out of trace output.
 trap 'rm -f ${tmpfile}' EXIT
 trap 'exit 1' SIGINT SIGHUP
 tmpfile=$(mktemp)

@@ -1,90 +1,63 @@
 #!/usr/bin/env bash
-# Update BirdNET-Pi's Git Repo
-source /etc/birdnet/birdnet.conf
-trap 'exit 1' SIGINT SIGHUP
-
-usage() { echo "Usage: $0 [-r <remote name>] [-b <branch name>] [-a]" 1>&2; exit 1; }
-
-if [ -n "${BIRDNET_USER}" ]; then
-  USER=${BIRDNET_USER}
-  HOME=/home/${BIRDNET_USER}
-else
-  USER=$(awk -F: '/1000/ {print $1}' /etc/passwd)
-  HOME=$(awk -F: '/1000/ {print $6}' /etc/passwd)
-fi
-my_dir=$HOME/BirdNET-Pi/scripts
-
-# Defaults
-remote="origin"
-branch="main"
-auto_update=""
-
-while getopts ":r:b:a" o; do
-  case "${o}" in
-    r)
-      remote=${OPTARG}
-      git -C $HOME/BirdNET-Pi remote show $remote > /dev/null 2>&1
-      ret_val=$?
-
-      if [ $ret_val -ne 0 ]; then
-        echo "Error: remote '$remote' not found. Add the upstream remote to your repository and try again."
-        exit 1
-      fi
-      ;;
-    b)
-      branch=${OPTARG}
-      ;;
-    a)
-      auto_update=1
-      ;;
-    *)
-      usage
-      ;;
+set -euo pipefail
+configuration="${BIRDNET_CONFIG:-/etc/birdnet/birdnet.conf}"
+source "$configuration"
+script=$(readlink -f -- "${BASH_SOURCE[0]}")
+root=$(cd -- "$(dirname -- "$script")/.." && pwd)
+owner="${BIRDNET_USER:-pi}"
+remote=origin
+branch=main
+auto_update=0
+while getopts ':r:b:a' option; do
+  case "$option" in
+    r) remote="$OPTARG" ;;
+    b) branch="$OPTARG" ;;
+    a) auto_update=1 ;;
+    *) echo "Usage: $0 [-r origin] [-b main] [-a]" >&2; exit 2 ;;
   esac
 done
-shift $((OPTIND-1))
-
-sudo_with_user () {
-  set -x
-  sudo -u $USER "$@"
-  set +x
+[ "$remote" = origin ] && [ "$branch" = main ] || { echo 'This release updates from origin/main only.' >&2; exit 1; }
+if [ "$auto_update" = 1 ] && [ "${AUTOMATIC_UPDATE:-0}" != 1 ]; then
+  echo 'Automatic updates are disabled.'
+  exit 0
+fi
+as_owner() { sudo -u "$owner" "$@"; }
+git_owner() { as_owner git -C "$root" "$@"; }
+case "$(git_owner config --get remote.origin.url)" in
+  https://github.com/iiukolov-max/BirdNET-Pi_v3.git|https://github.com/iiukolov-max/BirdNET-Pi_v3|git@github.com:iiukolov-max/BirdNET-Pi_v3.git) ;;
+  *) echo 'Update refused: origin is not iiukolov-max/BirdNET-Pi_v3. Follow the fork migration instructions.' >&2; exit 1 ;;
+esac
+exec 9>"$root/.release-update.lock"
+flock -n 9 || { echo 'Another update is running.' >&2; exit 1; }
+if ! git_owner diff --quiet || ! git_owner diff --cached --quiet; then
+  echo 'Local tracked code changes found. Update refused; preserve and integrate those changes first.' >&2
+  exit 1
+fi
+git_owner fetch origin '+refs/heads/main:refs/remotes/origin/main'
+old_commit=$(git_owner rev-parse HEAD)
+new_commit=$(git_owner rev-parse origin/main)
+if [ "$old_commit" = "$new_commit" ]; then
+  echo 'Already up to date.'
+  exit 0
+fi
+git_owner merge-base --is-ancestor "$old_commit" "$new_commit" || {
+  echo 'Local history diverges from origin/main; update refused without changing files.' >&2
+  exit 1
 }
-
-can_auto_update () {
-  if [ -z ${AUTOMATIC_UPDATE} ] || [ "${AUTOMATIC_UPDATE}" == 0 ]; then
-    echo "Auto update is not enabled"
-    exit 0
-  fi
-  sudo_with_user git -C $HOME/BirdNET-Pi fetch $remote $branch
-  behind_count=$(sudo_with_user git -C $HOME/BirdNET-Pi rev-list --count HEAD..@{u})
-  if [ "${behind_count}" -eq 0 ]; then
-    echo "No updates"
-    exit 0
-  fi
-}
-
-[ -n "${auto_update}" ] && can_auto_update
-
-# Get current HEAD hash
-commit_hash=$(sudo_with_user git -C $HOME/BirdNET-Pi rev-parse HEAD)
-
-# Reset current HEAD to remove any local changes
-sudo_with_user git -C $HOME/BirdNET-Pi reset --hard
-
-# Fetches latest changes
-sudo_with_user git -C $HOME/BirdNET-Pi fetch $remote $branch
-
-# Switches git to specified branch
-sudo_with_user git -C $HOME/BirdNET-Pi switch -C $branch --track $remote/$branch
-
-# Prints out changes
-sudo_with_user git --no-pager -C $HOME/BirdNET-Pi diff --stat $commit_hash HEAD
-
-$my_dir/pre_update.sh
-
+backup=$(as_owner python3 "$root/scripts/backup_before_update.py" --configuration "$configuration")
+echo "Private backup created: $backup"
+trap 'echo "Update failed. Inspect the error; backup is at $backup. No user data was deleted." >&2' ERR
+# Fast-forward refuses collisions with untracked files. No reset or clean is used.
+git_owner merge --ff-only origin/main
+as_owner python3 "$root/scripts/download_v3.py"
+as_owner "$root/birdnet/bin/python3" -m pip install 'numpy<2; python_version < "3.13"' 'numpy; python_version >= "3.13"' 'soxr==1.0.0'
+as_owner python3 "$root/scripts/migrate_review_db.py"
+as_owner bash "$root/scripts/install_language_label.sh"
+sudo install -d /etc/systemd/system/birdnet_analysis.service.d
+printf '[Service]\nEnvironment=OPENBLAS_NUM_THREADS=1\nEnvironment=OMP_NUM_THREADS=1\nEnvironment=MKL_NUM_THREADS=1\nEnvironment=NUMEXPR_NUM_THREADS=1\n' | sudo tee /etc/systemd/system/birdnet_analysis.service.d/35-library-threads.conf >/dev/null
 sudo systemctl daemon-reload
-sudo ln -sf $my_dir/* /usr/local/bin/
-
-# The script below handles changes to the host system
-# Any additions to the updater should be placed in that file.
-sudo $my_dir/update_birdnet_snippets.sh
+# Recording and the audio archive stay in place; reload the inference worker only.
+sudo systemctl restart birdnet_analysis.service
+sudo systemctl is-active --quiet birdnet_analysis.service
+sudo python3 "$root/scripts/check_model_ready.py"
+echo 'Code update completed. Verify model readiness and recent detections in the web interface.'

@@ -10,9 +10,9 @@ require_once 'scripts/common.php';
 $home = get_home();
 $config = get_config();
 $user = get_user();
-
-$db = new SQLite3('./scripts/birds.db', SQLITE3_OPEN_READONLY);
-$db->busyTimeout(1000);
+if (!isset($_SESSION['review_csrf'])) {
+  $_SESSION['review_csrf'] = bin2hex(random_bytes(32));
+}
 
 if(isset($_GET['deletefile'])) {
   ensure_authenticated('You must be authenticated to delete files.');
@@ -21,7 +21,7 @@ if(isset($_GET['deletefile'])) {
     die();
   }
   $db_writable = new SQLite3('./scripts/birds.db', SQLITE3_OPEN_READWRITE);
-  $db->busyTimeout(1000);
+  $db_writable->busyTimeout(8000);
   $statement1 = $db_writable->prepare('DELETE FROM detections WHERE File_Name = :file_name LIMIT 1');
   ensure_db_ok($statement1);
   $statement1->bindValue(':file_name', explode("/", $_GET['deletefile'])[2]);
@@ -35,6 +35,10 @@ if(isset($_GET['deletefile'])) {
   if ($result1 === false || $db_writable->changes() === 0) {
     echo "Error - database line deletion failed : " . $db_writable->lastErrorMsg();
   }
+  if ($result1) {
+    $result1->finalize();
+  }
+  $statement1->close();
   $db_writable->close();
   die();
 }
@@ -69,9 +73,9 @@ if(isset($_GET['excludefile'])) {
 }
 
 if(isset($_GET['getlabels'])) {
-    $labels = file('./scripts/labels.txt', FILE_IGNORE_NEW_LINES);
-    echo json_encode($labels);
-    die();
+  $labels = file('./scripts/labels.txt', FILE_IGNORE_NEW_LINES);
+  echo json_encode($labels);
+  die();
 }
 
 if(isset($_GET['changefile']) && isset($_GET['newname'])) {
@@ -90,40 +94,104 @@ if(isset($_GET['changefile']) && isset($_GET['newname'])) {
   die();
 }
 
+/* --- review detection --- */
+if(isset($_GET['reviewfile']) || isset($_POST['reviewfile'])) {
+  ensure_authenticated('You must be authenticated to review files.');
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    header('Allow: POST');
+    die('Review changes require POST');
+  }
+  if (!isset($_POST['csrf']) || !hash_equals($_SESSION['review_csrf'], $_POST['csrf'])) {
+    http_response_code(403);
+    die('Invalid request token');
+  }
+
+  $reviewfile = filter_input(INPUT_POST, 'reviewfile', FILTER_UNSAFE_RAW);
+  $status = $_POST['status'] ?? '';
+
+  if (!$reviewfile || strpos($reviewfile, "\0") !== false || strpos($reviewfile, '\\') !== false ||
+      $reviewfile[0] === '/' || in_array('..', explode('/', $reviewfile), true)) {
+    echo "Error";
+    die();
+  }
+
+  if (!in_array($status, ['correct', 'false_positive', 'unreviewed'], true)) {
+    echo "Error - invalid status";
+    die();
+  }
+
+  $db_writable = new SQLite3('./scripts/birds.db', SQLITE3_OPEN_READWRITE);
+  $db_writable->busyTimeout(8000);
+  $statement = $status === 'unreviewed'
+    ? $db_writable->prepare('DELETE FROM detection_reviews WHERE file_path = :file_path')
+    : $db_writable->prepare("
+    INSERT INTO detection_reviews (file_path, review_status, reviewed_at)
+    VALUES (:file_path, :review_status, CURRENT_TIMESTAMP)
+    ON CONFLICT(file_path) DO UPDATE SET
+      review_status = excluded.review_status,
+      reviewed_at = CURRENT_TIMESTAMP
+  ");
+  ensure_db_ok($statement);
+
+  $statement->bindValue(':file_path', $reviewfile, SQLITE3_TEXT);
+  if ($status !== 'unreviewed') {
+    $statement->bindValue(':review_status', $status, SQLITE3_TEXT);
+  }
+
+  $result = $statement->execute();
+
+  if ($result === false) {
+    echo "Error - review save failed : " . $db_writable->lastErrorMsg();
+  } else {
+    echo "OK";
+  }
+
+  if ($result) {
+    $result->finalize();
+  }
+  $statement->close();
+  $db_writable->close();
+  die();
+}
+
 $shifted_path = $home."/BirdSongs/Extracted/By_Date/shifted/";
 
 if(isset($_GET['shiftfile'])) {
   ensure_authenticated('You cannot shift files for this installation');
 
-    $filename = $_GET['shiftfile'];
-    $pp = pathinfo($filename);
-    $dir = $pp['dirname'];
-    $fn  = $pp['filename'];
-    $ext = $pp['extension'];
-    $pi = $home."/BirdSongs/Extracted/By_Date/";
+  $filename = $_GET['shiftfile'];
+  $pp = pathinfo($filename);
+  $dir = $pp['dirname'];
+  $fn  = $pp['filename'];
+  $ext = $pp['extension'];
+  $pi = $home."/BirdSongs/Extracted/By_Date/";
 
-    if(isset($_GET['doshift'])) {
-  $freqshift_tool = $config['FREQSHIFT_TOOL'];
+  if(isset($_GET['doshift'])) {
+    $freqshift_tool = $config['FREQSHIFT_TOOL'];
 
-  if ($freqshift_tool == "ffmpeg") {
-    $cmd = "sudo /usr/bin/nohup /usr/bin/ffmpeg -y -i ".escapeshellarg($pi.$filename)." -af \"rubberband=pitch=".$config['FREQSHIFT_LO']."/".$config['FREQSHIFT_HI']."\" ".escapeshellarg($shifted_path.$filename)."";
-    shell_exec("sudo mkdir -p ".$shifted_path.$dir." && ".$cmd);
+    if ($freqshift_tool == "ffmpeg") {
+      $cmd = "sudo /usr/bin/nohup /usr/bin/ffmpeg -y -i ".escapeshellarg($pi.$filename)." -af \"rubberband=pitch=".$config['FREQSHIFT_LO']."/".$config['FREQSHIFT_HI']."\" ".escapeshellarg($shifted_path.$filename)."";
+      shell_exec("sudo mkdir -p ".$shifted_path.$dir." && ".$cmd);
 
-  } else if ($freqshift_tool == "sox") {
-    //linux.die.net/man/1/sox
-    $soxopt = "-q";
-    $soxpitch = $config['FREQSHIFT_PITCH'];
-    $cmd = "sudo /usr/bin/nohup /usr/bin/sox ".escapeshellarg($pi.$filename)." ".escapeshellarg($shifted_path.$filename)." pitch ".$soxopt." ".$soxpitch;
-   shell_exec("sudo mkdir -p ".$shifted_path.$dir." && ".$cmd);
-  }
-    } else {
-     $cmd = "sudo rm -f " . escapeshellarg($shifted_path.$filename);
-     shell_exec($cmd);
+    } else if ($freqshift_tool == "sox") {
+      $soxopt = "-q";
+      $soxpitch = $config['FREQSHIFT_PITCH'];
+      $cmd = "sudo /usr/bin/nohup /usr/bin/sox ".escapeshellarg($pi.$filename)." ".escapeshellarg($shifted_path.$filename)." pitch ".$soxopt." ".$soxpitch;
+      shell_exec("sudo mkdir -p ".$shifted_path.$dir." && ".$cmd);
     }
+  } else {
+    $cmd = "sudo rm -f " . escapeshellarg($shifted_path.$filename);
+    shell_exec($cmd);
+  }
 
-    echo "OK";
-    die();
+  echo "OK";
+  die();
 }
+
+/* Open read-only DB only for rendering */
+$db = new SQLite3('./scripts/birds.db', SQLITE3_OPEN_READONLY);
+$db->busyTimeout(8000);
 
 if(isset($_GET['bydate'])){
   $statement = $db->prepare('SELECT DISTINCT(Date) FROM detections GROUP BY Date ORDER BY Date DESC');
@@ -131,7 +199,6 @@ if(isset($_GET['bydate'])){
   $result = $statement->execute();
   $view = "bydate";
 
-  #Specific Date
 } elseif(isset($_GET['date'])) {
   $date = $_GET['date'];
   session_start();
@@ -139,12 +206,10 @@ if(isset($_GET['bydate'])){
   $result = fetch_species_array($_GET['sort'], $date);
   $view = "date";
 
-  #By Species
 } elseif(isset($_GET['byspecies'])) {
   $result = fetch_species_array($_GET['sort']);
   $view = "byspecies";
 
-  #Specific Species
 } elseif(isset($_GET['species'])) {
   $species = htmlspecialchars_decode($_GET['species'], ENT_QUOTES);
   session_start();
@@ -169,7 +234,6 @@ if (get_included_files()[0] === __FILE__) {
 ?>
 <script src="static/custom-audio-player.js"></script>
 <script>
-
 function deleteDetection(filename,copylink=false) {
   if (confirm("Are you sure you want to delete this detection from the database?") == true) {
     const xhttp = new XMLHttpRequest();
@@ -221,7 +285,6 @@ function toggleShiftFreq(filename, shiftAction, elem) {
         elem.setAttribute("src","images/unshift.svg");
         elem.setAttribute("title", "This file has been shifted down in frequency.");
         elem.setAttribute("onclick", elem.getAttribute("onclick").replace("shift","unshift"));
-	console.log("shifted freqs of " + filename);
         const audioDiv = elem.parentNode.querySelector(".custom-audio-player");
         if (audioDiv) {
           audioDiv.setAttribute("data-audio-src", audioDiv.getAttribute("data-audio-src").replace("/By_Date/", "/By_Date/shifted/"));
@@ -235,7 +298,6 @@ function toggleShiftFreq(filename, shiftAction, elem) {
         elem.setAttribute("src","images/shift.svg");
         elem.setAttribute("title", "This file is not shifted in frequency.");
         elem.setAttribute("onclick", elem.getAttribute("onclick").replace("unshift","shift"));
-        console.log("unshifted freqs of " + filename);
         const audioDiv = elem.parentNode.querySelector(".custom-audio-player");
         if (audioDiv) {
           audioDiv.setAttribute("data-audio-src", audioDiv.getAttribute("data-audio-src").replace("/By_Date/shifted/", "/By_Date/"));
@@ -249,14 +311,47 @@ function toggleShiftFreq(filename, shiftAction, elem) {
     }
   }
   if(shiftAction == "shift") {
-    console.log("shifting freqs of " + filename);
     xhttp.open("GET", "play.php?shiftfile="+filename+"&doshift=true", true);
   } else {
-    console.log("unshifting freqs of " + filename);
     xhttp.open("GET", "play.php?shiftfile="+filename, true);  
   }
   xhttp.send();
   elem.setAttribute("src","images/spinner.gif");
+}
+
+function reviewDetection(filename, status, elem) {
+  if (elem.style.opacity === "1") status = "unreviewed";
+  const xhttp = new XMLHttpRequest();
+  xhttp.onload = function() {
+    if (this.responseText == "OK") {
+      const cell = elem.closest(".relative");
+      if (!cell) return;
+
+      const correctBtn = cell.querySelector(".review-correct");
+      const falseBtn = cell.querySelector(".review-false");
+      const stateLabel = cell.querySelector(".review-state");
+
+      if (correctBtn) correctBtn.style.opacity = "0.35";
+      if (falseBtn) falseBtn.style.opacity = "0.35";
+      if (status !== "unreviewed") elem.style.opacity = "1";
+
+      if (stateLabel) {
+        if (status === "correct") {
+          stateLabel.innerHTML = " <span style='color:#0a7d20;font-weight:bold'>✓ verified</span>";
+        } else if (status === "false_positive") {
+          stateLabel.innerHTML = " <span style='color:#b00020;font-weight:bold'>✗ false positive</span>";
+        } else {
+          stateLabel.innerHTML = "";
+        }
+      }
+    } else {
+      alert(this.responseText);
+    }
+  };
+  xhttp.open("POST", "play.php", true);
+  xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+  xhttp.send("reviewfile=" + encodeURIComponent(filename) + "&status=" + encodeURIComponent(status) +
+    "&csrf=" + encodeURIComponent(<?php echo json_encode($_SESSION['review_csrf']); ?>));
 }
 
 function changeDetection(filename,copylink=false) {
@@ -265,40 +360,34 @@ function changeDetection(filename,copylink=false) {
     const labels = JSON.parse(this.responseText);
     let dropdown = '<input type="text" id="filterInput" placeholder="Type to filter..."> <button id="cancelButton">Cancel</button> <br><select id="labelDropdown" class="testbtn" size="5" style="display: block; margin: 0 auto;"></select>';
 
-	// Check if the modal already exists
     let modal = document.getElementById('myModal');
     if (!modal) {
-      // Create a modal box
       modal = document.createElement('div');
       modal.setAttribute('id', 'myModal');
       modal.setAttribute('class', 'modal');
 
-      // Create a content box
       let content = document.createElement('div');
       content.setAttribute('class', 'modal-content');
 
-      // Add a title to the modal box
       let title = document.createElement('h2');
       title.textContent = 'Please select the correct species here:';
       content.appendChild(title);
 
-      // Add the dropdown to the content
       let selectElement = document.createElement('div');
       selectElement.innerHTML = dropdown;
       content.appendChild(selectElement);
 
-      // Append the content to the modal
       modal.appendChild(content);
-
-      // Append the modal to the body
       document.body.appendChild(modal);
     }
 
-    // Display the modal
     modal.style.display = "block";
 
-    // Populate the dropdown list
     let dropdownList = document.getElementById('labelDropdown');
+    while (dropdownList.firstChild) {
+      dropdownList.removeChild(dropdownList.firstChild);
+    }
+
     labels.forEach(label => {
       let option = document.createElement('option');
       option.value = label;
@@ -306,23 +395,18 @@ function changeDetection(filename,copylink=false) {
       dropdownList.appendChild(option);
     });
 
-    // Add an event listener to the modal box to hide it when clicked outside
     document.addEventListener('click', function(event) {
       if (event.target == modal) {
         modal.style.display = "none";
-        dropdownList.selectedIndex = -1; // Reset the dropdown selection
+        dropdownList.selectedIndex = -1;
       }
     });
 
-    // Add an event listener to the input box to filter the dropdown list
     document.getElementById('filterInput').addEventListener('keyup', function() {
       let filter = this.value.toUpperCase();
-      let options = dropdownList.options;
-      // Clear the dropdown list
       while (dropdownList.firstChild) {
         dropdownList.removeChild(dropdownList.firstChild);
       }
-      // Populate the dropdown list with the filtered labels
       labels.forEach(label => {
         if (label.toUpperCase().indexOf(filter) > -1) {
           let option = document.createElement('option');
@@ -333,17 +417,15 @@ function changeDetection(filename,copylink=false) {
       });
     });
 
-    // Add an event listener to the cancel button to hide the modal box
     document.getElementById('cancelButton').addEventListener('click', function() {
       modal.style.display = "none";
-      dropdownList.selectedIndex = -1; // Reset the dropdown selection
+      dropdownList.selectedIndex = -1;
     });
 
     dropdownList.addEventListener('change', function() {
       const newname = this.value;
-      // Check if the default option is selected
       if (newname === '') {
-        return; // Exit the function early
+        return;
       }
       if (confirm("Are you sure you want to change the specie identified in this detection to " + newname + "?") == true) {
         const xhttp2 = new XMLHttpRequest();
@@ -363,7 +445,6 @@ function changeDetection(filename,copylink=false) {
         xhttp2.open("GET", "play.php?changefile="+filename+"&newname="+newname, true);
         xhttp2.send();
       }
-      // Hide the modal box and reset the dropdown selection
       modal.style.display = "none";
       this.selectedIndex = -1;
     });
@@ -371,17 +452,14 @@ function changeDetection(filename,copylink=false) {
   xhttp.open("GET", "play.php?getlabels=true", true);
   xhttp.send();
 }
-
 </script>
 
 <?php
-#If no specific species
 if(!isset($_GET['species']) && !isset($_GET['filename'])){
 ?>
 <div class="play">
 <?php if($view == "byspecies" || $view == "date") { ?>
-<div style="width: auto;
-   text-align: center">
+<div style="width: auto; text-align: center">
    <form action="views.php" method="GET">
       <input type="hidden" name="view" value="Recordings">
       <input type="hidden" name="<?php echo $view; ?>" value="<?php echo $_GET['date']; ?>">
@@ -405,15 +483,13 @@ if(!isset($_GET['species']) && !isset($_GET['filename'])){
 <input type="hidden" name="view" value="Recordings">
 <table>
 <?php
-  #By Date
   if($view == "bydate") {
     while($results=$result->fetchArray(SQLITE3_ASSOC)){
       $date = $results['Date'];
       if(realpath($home."/BirdSongs/Extracted/By_Date/".$date) !== false){
-        echo "<td>
-          <button action=\"submit\" name=\"date\" value=\"$date\">".($date == date('Y-m-d') ? "Today" : $date)."</button></td></tr>";}}
-
-          #By Species
+        echo "<td><button action=\"submit\" name=\"date\" value=\"$date\">".($date == date('Y-m-d') ? "Today" : $date)."</button></td></tr>";
+      }
+    }
   } elseif($view == "byspecies") {
     $birds = array();
     $values = array();
@@ -423,19 +499,13 @@ if(!isset($_GET['species']) && !isset($_GET['filename'])){
       $values[] = get_label($results, $_GET['sort']);
     }
 
-    if(count($birds) > 45) {
-      $num_cols = 3;
-    } else {
-      $num_cols = 1;
-    }
+    $num_cols = (count($birds) > 45) ? 3 : 1;
     $num_rows = ceil(count($birds) / $num_cols);
 
     for ($row = 0; $row < $num_rows; $row++) {
       echo "<tr>";
-
       for ($col = 0; $col < $num_cols; $col++) {
         $index = $row + $col * $num_rows;
-
         if ($index < count($birds)) {
           ?>
           <td class="spec">
@@ -446,62 +516,51 @@ if(!isset($_GET['species']) && !isset($_GET['filename'])){
           echo "<td></td>";
         }
       }
-
       echo "</tr>";
     }
   } elseif($view == "date") {
     $birds = array();
     $values = array();
-while($results=$result->fetchArray(SQLITE3_ASSOC))
-{
-  $dir_name = str_replace("'", '', $results['Com_Name']);
-  if(realpath($home."/BirdSongs/Extracted/By_Date/".$date."/".str_replace(" ", "_", $dir_name)) !== false){
-    $birds[] = $results['Sci_Name'];
-    $values[] = get_label($results, $_GET['sort'], $_GET['date']);
-  }
-}
-
-if(count($birds) > 45) {
-  $num_cols = 3;
-} else {
-  $num_cols = 1;
-}
-$num_rows = ceil(count($birds) / $num_cols);
-
-for ($row = 0; $row < $num_rows; $row++) {
-  echo "<tr>";
-
-  for ($col = 0; $col < $num_cols; $col++) {
-    $index = $row + $col * $num_rows;
-
-    if ($index < count($birds)) {
-      ?>
-      <td class="spec">
-          <button type="submit" name="species" value="<?php echo $birds[$index];?>"><?php echo $values[$index];?></button>
-      </td>
-      <?php
-    } else {
-      echo "<td></td>";
+    while($results=$result->fetchArray(SQLITE3_ASSOC))
+    {
+      $dir_name = str_replace("'", '', $results['Com_Name']);
+      if(realpath($home."/BirdSongs/Extracted/By_Date/".$date."/".str_replace(" ", "_", $dir_name)) !== false){
+        $birds[] = $results['Sci_Name'];
+        $values[] = get_label($results, $_GET['sort'], $_GET['date']);
+      }
     }
-  }
 
-  echo "</tr>";
-}
+    $num_cols = (count($birds) > 45) ? 3 : 1;
+    $num_rows = ceil(count($birds) / $num_cols);
 
-    #Choose
+    for ($row = 0; $row < $num_rows; $row++) {
+      echo "<tr>";
+      for ($col = 0; $col < $num_cols; $col++) {
+        $index = $row + $col * $num_rows;
+        if ($index < count($birds)) {
+          ?>
+          <td class="spec">
+              <button type="submit" name="species" value="<?php echo $birds[$index];?>"><?php echo $values[$index];?></button>
+          </td>
+          <?php
+        } else {
+          echo "<td></td>";
+        }
+      }
+      echo "</tr>";
+    }
   } else {
     echo "<td>
       <button action=\"submit\" name=\"byspecies\" value=\"byspecies\">By Species</button></td></tr>
       <tr><td><button action=\"submit\" name=\"bydate\" value=\"bydate\">By Date</button></td>";
-  } 
-
+  }
   echo "</table></form>";
 }
 
-#Specific Species
+$iter_additional = false;
+
 if(isset($_GET['species'])){ ?>
-<div style="width: auto;
-   text-align: center">
+<div style="width: auto; text-align: center">
    <form action="views.php" method="GET">
       <input type="hidden" name="view" value="Recordings">
       <input type="hidden" name="species" value="<?php echo $_GET['species']; ?>">
@@ -521,30 +580,31 @@ if(isset($_GET['species'])){ ?>
    </form>
 </div>
 <?php
-  // add disk_check_exclude.txt lines into an array for grepping
   $fp = @fopen($home."/BirdNET-Pi/scripts/disk_check_exclude.txt", 'r'); 
-if ($fp) {
-  $disk_check_exclude_arr = explode("\n", fread($fp, filesize($home."/BirdNET-Pi/scripts/disk_check_exclude.txt")));
-} else {
-  $disk_check_exclude_arr = [];
-}
+  if ($fp) {
+    $disk_check_exclude_arr = explode("\n", fread($fp, filesize($home."/BirdNET-Pi/scripts/disk_check_exclude.txt")));
+  } else {
+    $disk_check_exclude_arr = [];
+  }
 
-$name = htmlspecialchars_decode($_GET['species'], ENT_QUOTES);
-$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 40;
+  $name = htmlspecialchars_decode($_GET['species'], ENT_QUOTES);
+  $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 40;
 
-$result2 = fetch_all_detections($name, $_GET['sort'], $_SESSION['date']);
-$results=$result2->fetchArray(SQLITE3_ASSOC);
-$com_name = $results['Com_Name'];
-$result2->reset(); // reset the pointer to the beginning of the result set
-$sciname = $name;
-$info_url = get_info_url($sciname);
-$url = $info_url['URL'];
-echo "<table>
+  $result2 = fetch_all_detections($name, $_GET['sort'], $_SESSION['date']);
+  $results=$result2->fetchArray(SQLITE3_ASSOC);
+  $com_name = $results['Com_Name'];
+  $result2->reset();
+  $sciname = $name;
+  $info_url = get_info_url($sciname);
+  $url = $info_url['URL'];
+
+  echo "<table>
   <tr><th>$com_name<br><span style=\"font-weight:normal;\">
   <i>$sciname</i></span><br>
     <a href=\"$url\" target=\"_blank\"><img title=\"$url_title\" src=\"images/info.png\" width=\"20\"></a>
     <a href=\"https://wikipedia.org/wiki/$sciname\" target=\"_blank\"><img title=\"Wikipedia\" src=\"images/wiki.png\" width=\"20\"></a>
   </th></tr>";
+
   $iter=0;
   while($results=$result2->fetchArray(SQLITE3_ASSOC))
   {
@@ -554,19 +614,32 @@ echo "<table>
     $filename = "/By_Date/".$date."/".$comname."/".$results['File_Name'];
     $filename_shifted = "/By_Date/shifted/".$date."/".$comname."/".$results['File_Name'];
     $filename_png = $filename . ".png";
-    $sciname = preg_replace('/ /', '_', $results['Sci_Name']);
-    $sci_name = $results['Sci_Name'];
     $time = $results['Time'];
     $values = round((float)round($results['Confidence'],2) * 100 ) . '%';
     $filename_formatted = $date."/".$comname."/".$results['File_Name'];
 
-    // file was deleted by disk check, no need to show the detection in recordings
     if(!file_exists($home."/BirdSongs/Extracted/".$filename)) {
       continue;
     }
     if(!in_array($filename_formatted, $disk_check_exclude_arr) && isset($_GET['only_excluded'])) {
       continue;
     }
+
+    $review_status = '';
+    $review_stmt = $db->prepare("SELECT review_status FROM detection_reviews WHERE file_path = :file_path LIMIT 1");
+    if ($review_stmt) {
+      $review_stmt->bindValue(':file_path', $filename_formatted, SQLITE3_TEXT);
+      $review_res = $review_stmt->execute();
+      if ($review_res) {
+        $review_row = $review_res->fetchArray(SQLITE3_ASSOC);
+        if ($review_row && isset($review_row['review_status'])) {
+          $review_status = $review_row['review_status'];
+        }
+        $review_res->finalize();
+      }
+      $review_stmt->close();
+    }
+
     $iter++;
     if($iter > $limit) {
       $iter_additional=true;
@@ -579,133 +652,179 @@ echo "<table>
       $imageelem = "<a href=\"$filename\"><img src=\"$filename_png\"></a>";
     }
 
-      if(!in_array($filename_formatted, $disk_check_exclude_arr)) {
-        $imageicon = "images/unlock.svg";
-        $title = "This file will be deleted when disk space needs to be freed (>95% usage).";
-        $type = "add";
-      } else {
-        $imageicon = "images/lock.svg";
-        $title = "This file is excluded from being purged.";
-        $type = "del";
-      }
+    if(!in_array($filename_formatted, $disk_check_exclude_arr)) {
+      $imageicon = "images/unlock.svg";
+      $title = "This file will be deleted when disk space needs to be freed (>95% usage).";
+      $type = "add";
+    } else {
+      $imageicon = "images/lock.svg";
+      $title = "This file is excluded from being purged.";
+      $type = "del";
+    }
 
-      if(file_exists($shifted_path.$filename_formatted)) {
-        $shiftImageIcon = "images/unshift.svg";
-        $shiftTitle = "This file has been shifted down in frequency."; 
-        $shiftAction = "unshift";
-  $filename = $filename_shifted;
-      } else {
-        $shiftImageIcon = "images/shift.svg";
-        $shiftTitle = "This file is not shifted in frequency.";
-        $shiftAction = "shift";
-      }
+    if(file_exists($shifted_path.$filename_formatted)) {
+      $shiftImageIcon = "images/unshift.svg";
+      $shiftTitle = "This file has been shifted down in frequency.";
+      $shiftAction = "unshift";
+      $filename = $filename_shifted;
+    } else {
+      $shiftImageIcon = "images/shift.svg";
+      $shiftTitle = "This file is not shifted in frequency.";
+      $shiftAction = "shift";
+    }
 
-      echo "<tr>
+    $correctOpacity = ($review_status === 'correct') ? '1' : '0.35';
+    $falseOpacity   = ($review_status === 'false_positive') ? '1' : '0.35';
+
+    if ($review_status === 'correct') {
+      $reviewLabel = "<span class='review-state' style='color:#0a7d20;font-weight:bold'> ✓ verified</span>";
+    } elseif ($review_status === 'false_positive') {
+      $reviewLabel = "<span class='review-state' style='color:#b00020;font-weight:bold'> ✗ false positive</span>";
+    } else {
+      $reviewLabel = "<span class='review-state'></span>";
+    }
+
+    echo "<tr>
   <td class=\"relative\"> 
 
+<button style='position:absolute;right:170px;top:8px;opacity:$correctOpacity;cursor:pointer' onclick='reviewDetection(\"".$filename_formatted."\",\"correct\", this)' class='review-correct' title='Mark as correct'>✓</button>
+<button style='position:absolute;right:145px;top:8px;opacity:$falseOpacity;cursor:pointer' onclick='reviewDetection(\"".$filename_formatted."\",\"false_positive\", this)' class='review-false' title='Mark as false positive'>✗</button>
 <img style='cursor:pointer;right:120px' src='images/delete.svg' onclick='deleteDetection(\"".$filename_formatted."\")' class=\"copyimage\" width=25 title='Delete Detection'> 
 <img style='cursor:pointer;right:85px' src='images/bird.svg' onclick='changeDetection(\"".$filename_formatted."\")' class=\"copyimage\" width=25 title='Change Detection'> 
 <img style='cursor:pointer;right:45px' onclick='toggleLock(\"".$filename_formatted."\",\"".$type."\", this)' class=\"copyimage\" width=25 title=\"".$title."\" src=\"".$imageicon."\"> 
-<img style='cursor:pointer' onclick='toggleShiftFreq(\"".$filename_formatted."\",\"".$shiftAction."\", this)' class=\"copyimage\" width=25 title=\"".$shiftTitle."\" src=\"".$shiftImageIcon."\"> $date $time<br>$values<br>
+<img style='cursor:pointer' onclick='toggleShiftFreq(\"".$filename_formatted."\",\"".$shiftAction."\", this)' class=\"copyimage\" width=25 title=\"".$shiftTitle."\" src=\"".$shiftImageIcon."\"> $date $time<br>$values".$reviewLabel."<br>
 
         ".$imageelem."
         </td>
         </tr>";
-
-  }if($iter == 0){ echo "<tr><td><b>No recordings were found.</b><br><br><span style='font-size:medium'>They may have been deleted to make space for new recordings. You can prevent this from happening in the future by clicking the <img src='images/unlock.svg' style='width:20px'> icon in the top right of a recording.<br>You can also modify this behavior globally under \"Full Disk Behavior\" <a href='views.php?view=Advanced'>here.</a></span></td></tr>";}echo "</table>";}
-
-  if ($iter_additional) {
-    echo "<div style='text-align:center'>";
-    echo "<form action='views.php' method='GET' style='display:inline'>";
-    echo "<input type='hidden' name='view' value='Recordings'>";
-    echo "<input type='hidden' name='species' value=\"" . htmlspecialchars($_GET['species'], ENT_QUOTES) . "\">";
-    if(isset($_GET['sort'])) {
-      echo "<input type='hidden' name='sort' value=\"" . htmlspecialchars($_GET['sort'], ENT_QUOTES) . "\">";
-    }
-    if(isset($_GET['only_excluded'])) {
-      echo "<input type='hidden' name='only_excluded' value='" . $_GET['only_excluded'] . "'>";
-    }
-    if(isset($_SESSION['date'])) {
-      echo "<input type='hidden' name='date' value='" . $_SESSION['date'] . "'>";
-    }
-    echo "<input type='hidden' name='limit' value='" . ($limit + 40) . "'>";
-    echo "<button type='submit' class='loadmore'>Load 40 more...</button>";
-    echo "</form>";
-    echo "</div>";
   }
 
-  if(isset($_GET['filename'])){
-    $name = $_GET['filename'];
-    $statement2 = $db->prepare("SELECT * FROM detections where File_name == \"$name\" ORDER BY Date DESC, Time DESC");
-    ensure_db_ok($statement2);
-    $result2 = $statement2->execute();
-    $results = $result2->fetchArray(SQLITE3_ASSOC);
-    $sciname = $results['Sci_Name'];
-    $result2->reset();
-    $info_url = get_info_url($sciname);
-    $url = $info_url['URL'];
-    echo "<table>
+  if($iter == 0){
+    echo "<tr><td><b>No recordings were found.</b><br><br><span style='font-size:medium'>They may have been deleted to make space for new recordings. You can prevent this from happening in the future by clicking the <img src='images/unlock.svg' style='width:20px'> icon in the top right of a recording.<br>You can also modify this behavior globally under \"Full Disk Behavior\" <a href='views.php?view=Advanced'>here.</a></span></td></tr>";
+  }
+  echo "</table>";
+}
+
+if ($iter_additional) {
+  echo "<div style='text-align:center'>";
+  echo "<form action='views.php' method='GET' style='display:inline'>";
+  echo "<input type='hidden' name='view' value='Recordings'>";
+  echo "<input type='hidden' name='species' value=\"" . htmlspecialchars($_GET['species'], ENT_QUOTES) . "\">";
+  if(isset($_GET['sort'])) {
+    echo "<input type='hidden' name='sort' value=\"" . htmlspecialchars($_GET['sort'], ENT_QUOTES) . "\">";
+  }
+  if(isset($_GET['only_excluded'])) {
+    echo "<input type='hidden' name='only_excluded' value='" . $_GET['only_excluded'] . "'>";
+  }
+  if(isset($_SESSION['date'])) {
+    echo "<input type='hidden' name='date' value='" . $_SESSION['date'] . "'>";
+  }
+  echo "<input type='hidden' name='limit' value='" . ($limit + 40) . "'>";
+  echo "<button type='submit' class='loadmore'>Load 40 more...</button>";
+  echo "</form>";
+  echo "</div>";
+}
+
+if(isset($_GET['filename'])){
+  $name = $_GET['filename'];
+  $statement2 = $db->prepare("SELECT * FROM detections where File_name == \"$name\" ORDER BY Date DESC, Time DESC");
+  ensure_db_ok($statement2);
+  $result2 = $statement2->execute();
+  $results = $result2->fetchArray(SQLITE3_ASSOC);
+  $sciname = $results['Sci_Name'];
+  $result2->reset();
+  $info_url = get_info_url($sciname);
+  $url = $info_url['URL'];
+  echo "<table>
       <tr><th>$name<br>
       <i>$sciname</i><br>
           <a href=\"$url\" target=\"_blank\"><img title=\"$url_title\" src=\"images/info.png\" width=\"20\"></a>
           <a href=\"https://wikipedia.org/wiki/$sciname\" target=\"_blank\"><img title=\"Wikipedia\" src=\"images/wiki.png\" width=\"20\"></a>
       </th></tr>";
-      while($results=$result2->fetchArray(SQLITE3_ASSOC))
-      {
-        $comname = preg_replace('/ /', '_', $results['Com_Name']);
-        $comname = preg_replace('/\'/', '', $comname);
-        $date = $results['Date'];
-        $filename = "/By_Date/".$date."/".$comname."/".$results['File_Name'];
-        $filename_shifted = "/By_Date/shifted/".$date."/".$comname."/".$results['File_Name'];
-        $filename_png = $filename . ".png";
-        $sciname = preg_replace('/ /', '_', $results['Sci_Name']);
-        $sci_name = $results['Sci_Name'];
-        $time = $results['Time'];
-        $values = round((float)round($results['Confidence'],2) * 100 ) . '%';
-        $filename_formatted = $date."/".$comname."/".$results['File_Name'];
+  while($results=$result2->fetchArray(SQLITE3_ASSOC))
+  {
+    $comname = preg_replace('/ /', '_', $results['Com_Name']);
+    $comname = preg_replace('/\'/', '', $comname);
+    $date = $results['Date'];
+    $filename = "/By_Date/".$date."/".$comname."/".$results['File_Name'];
+    $filename_shifted = "/By_Date/shifted/".$date."/".$comname."/".$results['File_Name'];
+    $filename_png = $filename . ".png";
+    $time = $results['Time'];
+    $values = round((float)round($results['Confidence'],2) * 100 ) . '%';
+    $filename_formatted = $date."/".$comname."/".$results['File_Name'];
 
-        // add disk_check_exclude.txt lines into an array for grepping
-        $fp = @fopen($home."/BirdNET-Pi/scripts/disk_check_exclude.txt", 'r');
-        if ($fp) {
-          $disk_check_exclude_arr = explode("\n", fread($fp, filesize($home."/BirdNET-Pi/scripts/disk_check_exclude.txt")));
-        } else {
-          $disk_check_exclude_arr = [];
+    $review_status = '';
+    $review_stmt = $db->prepare("SELECT review_status FROM detection_reviews WHERE file_path = :file_path LIMIT 1");
+    if ($review_stmt) {
+      $review_stmt->bindValue(':file_path', $filename_formatted, SQLITE3_TEXT);
+      $review_res = $review_stmt->execute();
+      if ($review_res) {
+        $review_row = $review_res->fetchArray(SQLITE3_ASSOC);
+        if ($review_row && isset($review_row['review_status'])) {
+          $review_status = $review_row['review_status'];
         }
-
-          if(!in_array($filename_formatted, $disk_check_exclude_arr)) {
-            $imageicon = "images/unlock.svg";
-            $title = "This file will be deleted when disk space needs to be freed (>95% usage).";
-            $type = "add";
-          } else {
-            $imageicon = "images/lock.svg";
-            $title = "This file is excluded from being purged.";
-            $type = "del";
-          }
-
-      if(file_exists($shifted_path.$filename_formatted)) {
-        $shiftImageIcon = "images/unshift.svg";
-        $shiftTitle = "This file has been shifted down in frequency."; 
-        $shiftAction = "unshift";
-  $filename = $filename_shifted;
-      } else {
-        $shiftImageIcon = "images/shift.svg";
-        $shiftTitle = "This file is not shifted in frequency.";
-        $shiftAction = "shift";
+        $review_res->finalize();
       }
+      $review_stmt->close();
+    }
 
-          echo "<tr>
+    $fp = @fopen($home."/BirdNET-Pi/scripts/disk_check_exclude.txt", 'r');
+    if ($fp) {
+      $disk_check_exclude_arr = explode("\n", fread($fp, filesize($home."/BirdNET-Pi/scripts/disk_check_exclude.txt")));
+    } else {
+      $disk_check_exclude_arr = [];
+    }
+
+    if(!in_array($filename_formatted, $disk_check_exclude_arr)) {
+      $imageicon = "images/unlock.svg";
+      $title = "This file will be deleted when disk space needs to be freed (>95% usage).";
+      $type = "add";
+    } else {
+      $imageicon = "images/lock.svg";
+      $title = "This file is excluded from being purged.";
+      $type = "del";
+    }
+
+    if(file_exists($shifted_path.$filename_formatted)) {
+      $shiftImageIcon = "images/unshift.svg";
+      $shiftTitle = "This file has been shifted down in frequency.";
+      $shiftAction = "unshift";
+      $filename = $filename_shifted;
+    } else {
+      $shiftImageIcon = "images/shift.svg";
+      $shiftTitle = "This file is not shifted in frequency.";
+      $shiftAction = "shift";
+    }
+
+    $correctOpacity = ($review_status === 'correct') ? '1' : '0.35';
+    $falseOpacity   = ($review_status === 'false_positive') ? '1' : '0.35';
+
+    if ($review_status === 'correct') {
+      $reviewLabel = "<span class='review-state' style='color:#0a7d20;font-weight:bold'> ✓ verified</span>";
+    } elseif ($review_status === 'false_positive') {
+      $reviewLabel = "<span class='review-state' style='color:#b00020;font-weight:bold'> ✗ false positive</span>";
+    } else {
+      $reviewLabel = "<span class='review-state'></span>";
+    }
+
+    echo "<tr>
       <td class=\"relative\"> 
 
+<button style='position:absolute;right:170px;top:8px;opacity:$correctOpacity;cursor:pointer' onclick='reviewDetection(\"".$filename_formatted."\",\"correct\", this)' class='review-correct' title='Mark as correct'>✓</button>
+<button style='position:absolute;right:145px;top:8px;opacity:$falseOpacity;cursor:pointer' onclick='reviewDetection(\"".$filename_formatted."\",\"false_positive\", this)' class='review-false' title='Mark as false positive'>✗</button>
 <img style='cursor:pointer;right:120px' src='images/delete.svg' onclick='deleteDetection(\"".$filename_formatted."\", true)' class=\"copyimage\" width=25 title='Delete Detection'> 
 <img style='cursor:pointer;right:85px' src='images/bird.svg' onclick='changeDetection(\"".$filename_formatted."\")' class=\"copyimage\" width=25 title='Change Detection'> 
 <img style='cursor:pointer;right:45px' onclick='toggleLock(\"".$filename_formatted."\",\"".$type."\", this)' class=\"copyimage\" width=25 title=\"".$title."\" src=\"".$imageicon."\"> 
-<img style='cursor:pointer' onclick='toggleShiftFreq(\"".$filename_formatted."\",\"".$shiftAction."\", this)' class=\"copyimage\" width=25 title=\"".$shiftTitle."\" src=\"".$shiftImageIcon."\">$date $time<br>$values<br>
+<img style='cursor:pointer' onclick='toggleShiftFreq(\"".$filename_formatted."\",\"".$shiftAction."\", this)' class=\"copyimage\" width=25 title=\"".$shiftTitle."\" src=\"".$shiftImageIcon."\">$date $time<br>$values".$reviewLabel."<br>
 
 <div class='custom-audio-player' data-audio-src='$filename' data-image-src='$filename_png'></div>
 </td></tr>";
+  }
+  echo "</table>";
+}
+echo "</div>";
 
-      }echo "</table>";}
-      echo "</div>";
 if (get_included_files()[0] === __FILE__) {
   echo '</html>';
 }
+?>

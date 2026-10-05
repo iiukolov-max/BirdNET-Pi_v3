@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Creates and installs the /etc/birdnet/birdnet.conf file
-set -x # Uncomment to enable debugging
+set +x # Configuration can contain credentials; keep it out of trace output.
 set -e
 trap 'exit 1' SIGINT SIGHUP
 
@@ -43,7 +43,7 @@ LONGITUDE=$LONGITUDE
 #______________________used for detecting bird audio.__________________________#
 #_It's recommended that you only change these values through the web interface.#
 
-MODEL=BirdNET_GLOBAL_6K_V2.4_Model_FP16
+MODEL=BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned
 SF_THRESH=0.03
 DATA_MODEL_VERSION=1
 
@@ -189,11 +189,11 @@ OVERLAP=0.0
 ## should reach before creating an entry in the BirdNET.selection.txt file.
 ## Don't set this to 1.0 or you won't have any results.
 
-CONFIDENCE=0.7
+CONFIDENCE=0.6
 
 ## SENSITIVITY is the detection sensitivity from 0.5-1.5.
 
-SENSITIVITY=1.25
+SENSITIVITY=1.0
 
 ## Configuration of the frequency shifting feature, useful for earing impaired people.
 

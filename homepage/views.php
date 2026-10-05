@@ -16,18 +16,14 @@ set_timezone();
 $restore = "cat $home/BirdSongs/restore.log";
 
 if(is_authenticated() && (!isset($_SESSION['behind']) || !isset($_SESSION['behind_time']) || time() > $_SESSION['behind_time'] + 86400)) {
-  shell_exec("sudo -u".$user." git -C ".$home."/BirdNET-Pi fetch > /dev/null 2>/dev/null &");
-  $str = trim(shell_exec("sudo -u".$user." git -C ".$home."/BirdNET-Pi status"));
-  if (preg_match("/behind '.*?' by (\d+) commit(s?)\b/", $str, $matches)) {
-    $num_commits_behind = $matches[1];
-  }
-  if (preg_match('/\b(\d+)\b and \b(\d+)\b different commits each/', $str, $matches)) {
-    $num1 = (int) $matches[1];
-    $num2 = (int) $matches[2];
-    $num_commits_behind = $num1 + $num2;
-  }
-  if (stripos($str, "Your branch is up to date") !== false) {
-    $num_commits_behind = '0';
+  $git = 'sudo -u '.escapeshellarg($user).' git -C '.escapeshellarg($home.'/BirdNET-Pi').' ';
+  $origin = trim(shell_exec($git.'config --get remote.origin.url 2>/dev/null'));
+  $num_commits_behind = 0;
+  if (in_array($origin, ['https://github.com/iiukolov-max/BirdNET-Pi_v3.git', 'https://github.com/iiukolov-max/BirdNET-Pi_v3', 'git@github.com:iiukolov-max/BirdNET-Pi_v3.git'], true)) {
+    // Fetch explicitly from the release channel, including tagged installations.
+    shell_exec($git.'fetch origin '.escapeshellarg('+refs/heads/main:refs/remotes/origin/main').' >/dev/null 2>&1');
+    $count = trim(shell_exec($git.'rev-list --count HEAD..origin/main 2>/dev/null'));
+    if (ctype_digit($count)) $num_commits_behind = (int)$count;
   }
   $_SESSION['behind'] = $num_commits_behind;
   $_SESSION['behind_time'] = time();

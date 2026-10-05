@@ -2,6 +2,9 @@ import logging
 import math
 import operator
 import os
+import json
+import subprocess
+import sys
 
 import numpy as np
 
@@ -17,6 +20,7 @@ except ImportError:
     from tensorflow import lite as tflite
 
 log = logging.getLogger(__name__)
+GEO_CACHE_WORKER = os.path.join(os.path.dirname(__file__), '..', 'v3_geo_cache.py')
 
 
 def get_model(model=None):
@@ -28,6 +32,8 @@ def get_model(model=None):
         return BirdNetV1(conf.getfloat('SENSITIVITY'))
     elif model == 'BirdNET_GLOBAL_6K_V2.4_Model_FP16':
         return BirdNetV2_4(conf.getfloat('SENSITIVITY'))
+    elif model == 'BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned':
+        return BirdNetV3Preview()
     elif model == 'Perch_v2':
         return Perch()
     elif model == 'BirdNET-Go_classifier_20250916':
@@ -99,6 +105,92 @@ class BirdNet(Basemodel):
 
     def _set_meta_model(self):
         return None
+
+
+class BirdNetV3Preview(Basemodel):
+    model_name = 'BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned'
+    sample_rate = 32000
+    chunk_duration = 3
+
+    def __init__(self):
+        self.labels = get_model_labels(self.model_name)
+        self._unique_labels = len(set(self.labels)) == len(self.labels)
+        self._geo_labels = get_model_labels('BirdNET_GLOBAL_6K_V2.4_Model_FP16')
+        self._unknown_species = set(self.labels) - set(self._geo_labels)
+        conf = get_settings()
+        self._geo_position = (conf.getfloat('LATITUDE'), conf.getfloat('LONGITUDE'))
+        request = dict(lat=self._geo_position[0], lon=self._geo_position[1],
+                       version=conf.getint('DATA_MODEL_VERSION'))
+        # The worker exits before acoustic allocation, releasing all range-model
+        # tensors and allocator arenas. Settings changes restart the analyzer.
+        result = subprocess.run([sys.executable, GEO_CACHE_WORKER], input=json.dumps(request),
+                                text=True, capture_output=True, timeout=180, check=True)
+        self._geo_cache = json.loads(result.stdout)
+        self._geo_week = None
+        threads = int(os.environ.get('BIRDNET_V3_THREADS', '2'))
+        if threads not in (1, 2, 4):
+            raise ValueError('BIRDNET_V3_THREADS must be 1, 2 or 4')
+        log.info('V3 inference threads: %d', threads)
+        self.interpreter = tflite.Interpreter(
+            os.path.join(MODEL_PATH, self.model_name + '.tflite'), num_threads=threads)
+        input_info = self.interpreter.get_input_details()[0]
+        self._input_layer_idx = input_info['index']
+        self.interpreter.resize_tensor_input(self._input_layer_idx, [1, 96000])
+        self.interpreter.allocate_tensors()
+        outputs = [d for d in self.interpreter.get_output_details()
+                   if list(d['shape']) == [1, len(self.labels)]]
+        if len(outputs) != 1:
+            raise ValueError('V3 output does not match its versioned labels')
+        self._output_layer_idx = outputs[0]['index']
+        # Readiness requires a successful inference, not merely a running process.
+        self.predict(np.random.default_rng(42).normal(0, 0.02, 96000).astype(np.float32))
+
+    def _label_top(self, probabilities, count):
+        count = max(0, min(int(count), len(self.labels)))
+        if count == 0:
+            return []
+        if not self._unique_labels or count == len(self.labels):
+            return self.label(probabilities)[:count]
+        # Partition by value, then resolve boundary ties in original label order.
+        # This preserves Python's stable full-sort results without sorting N items.
+        cutoff = np.partition(probabilities, len(probabilities) - count)[len(probabilities) - count]
+        higher = np.flatnonzero(probabilities > cutoff)
+        equal = np.flatnonzero(probabilities == cutoff)[:count - len(higher)]
+        indices = np.sort(np.concatenate((higher, equal)))
+        indices = indices[np.argsort(-probabilities[indices], kind='stable')]
+        return [(self.labels[i], probabilities[i]) for i in indices]
+
+    def predict_top(self, chunk, count):
+        return self.predict(chunk, top_k=count)
+
+    def predict(self, chunk, top_k=None):
+        chunk = np.asarray(chunk, dtype=np.float32)
+        if chunk.shape != (96000,) or not np.isfinite(chunk).all():
+            raise ValueError('Invalid V3 audio input')
+        # The preview normalizer produces NaN for exact digital silence.
+        if not np.any(chunk):
+            labels = self.labels if top_k is None else self.labels[:max(0, int(top_k))]
+            return [(name, 0.0) for name in labels]
+        self.interpreter.set_tensor(self._input_layer_idx, chunk[np.newaxis, :])
+        self.interpreter.invoke()
+        # Consume a short-lived NumPy view of the output instead of copying it.
+        # No view may survive into the next invoke/allocate call.
+        probabilities = self.interpreter.tensor(self._output_layer_idx)()[0]
+        if not np.isfinite(probabilities).all():
+            raise ValueError('V3 returned non-finite probabilities')
+        if top_k is None:
+            return self.label(probabilities)
+        return self._label_top(probabilities, top_k)
+
+    def set_meta_data(self, lat, lon, week):
+        if (lat, lon) != self._geo_position:
+            raise ValueError('V3 geographic position changed; restart the analyzer')
+        self._geo_week = str(week)
+        if self._geo_week not in self._geo_cache:
+            raise ValueError('Invalid geographic week')
+
+    def get_species_list(self):
+        return list({self._geo_labels[i] for i in self._geo_cache[self._geo_week]} | self._unknown_species)
 
 
 class BirdNetV1(BirdNet):

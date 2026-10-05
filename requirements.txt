@@ -2,7 +2,8 @@ tensorflow
 librosa
 pytz
 tzlocal
-numpy
+numpy<2; python_version < '3.13'
+numpy; python_version >= '3.13'
 pandas
 seaborn
 streamlit==1.44.0
@@ -17,3 +18,4 @@ matplotlib
 pillow
 pyarrow==20.0.0
 soundfile
+soxr==1.0.0

@@ -2,8 +2,8 @@ import logging
 import os
 import time
 
-import librosa
 import numpy as np
+import soundfile as sf
 
 from .classes import Detection, ParseFileName
 from .helpers import get_settings, get_language
@@ -35,7 +35,7 @@ def splitSignal(sig, rate, overlap, seconds=3.0, minlen=1.5):
 
         # Signal chunk too short? Fill with zeros.
         if len(split) < int(rate * seconds):
-            temp = np.zeros((int(rate * seconds)))
+            temp = np.zeros((int(rate * seconds)), dtype=split.dtype)
             temp[:len(split)] = split
             split = temp
 
@@ -47,8 +47,30 @@ def splitSignal(sig, rate, overlap, seconds=3.0, minlen=1.5):
 def readAudioData(path, overlap, sample_rate, chunk_duration):
     log.info('READING AUDIO DATA...')
 
-    # Open file with librosa (uses ffmpeg or libav)
-    sig, rate = librosa.load(path, sr=sample_rate, mono=True, res_type='kaiser_fast')
+    # WAV is the recorder's native format. Avoid loading librosa/Numba/LLVM
+    # into the long-lived analyzer just to decode and average its channels.
+    sig, rate = sf.read(path, dtype='float32', always_2d=True)
+    if sig.shape[1] == 2:
+        # Vectorized stereo sum avoids the generic per-row mean reduction.
+        # Float32 addition and halving match the previous stereo mean.
+        sig = np.add(sig[:, 0], sig[:, 1])
+        sig *= np.float32(0.5)
+    elif sig.shape[1] == 1:
+        sig = sig[:, 0]
+    else:
+        sig = sig.mean(axis=1)
+    if rate != sample_rate:
+        if sample_rate == 32000:
+            import soxr
+            length = int(np.ceil(len(sig) * sample_rate / rate))
+            sig = soxr.resample(sig, rate, sample_rate, quality='HQ')
+            # Match librosa's ceil-length contract for fractional durations.
+            sig = sig[:length] if len(sig) >= length else np.pad(sig, (0, length - len(sig)))
+        else:
+            # Preserve the old resampler for unusual legacy input rates.
+            import librosa
+            sig = librosa.resample(sig, orig_sr=rate, target_sr=sample_rate, res_type='kaiser_fast')
+        rate = sample_rate
 
     # Split audio into chunks
     chunks = splitSignal(sig, rate, overlap, seconds=chunk_duration)
@@ -67,12 +89,16 @@ def analyzeAudioData(chunks, overlap, lat, lon, week):
 
     model.set_meta_data(lat, lon, week)
     predicted_species_list = model.get_species_list()
+    # Human filtering only inspects this prefix; reporting only uses the top 10.
+    # Do not retain thousands of unused label tuples for every audio window.
+    keep_predictions = max(10, int(6000 * get_settings().getfloat('PRIVACY_THRESHOLD') / 100.0))
+    predict_top = getattr(model, 'predict_top', None)
 
     # Parse every chunk
     for chunk in chunks:
-        p = model.predict(chunk)
+        p = predict_top(chunk, keep_predictions) if predict_top is not None else model.predict(chunk)
         log.debug("PPPPP: %s", p)
-        detections.append(p)
+        detections.append(p[:keep_predictions])
 
     labeled = {}
     pred_start = 0.0

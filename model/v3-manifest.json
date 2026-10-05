@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "release": "BirdNET+ V3.0 Developer Preview 3.1",
+  "source": "https://zenodo.org/records/20703646",
+  "artifacts": [
+    {
+      "name": "BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned.tflite",
+      "url": "https://zenodo.org/records/20703646/files/BirdNET%2B_V3.0-preview3.1_Global_11K_FP16_pruned.tflite?download=1",
+      "bytes": 70461476,
+      "sha256": "f4af6290690e0031cd785d4c810167af83467ce1426f4eba249ca994681000db"
+    },
+    {
+      "name": "BirdNET+_V3.0-preview3.1_Global_11K_Labels.csv",
+      "url": "https://zenodo.org/records/20703646/files/BirdNET%2B_V3.0-preview3.1_Global_11K_Labels.csv?download=1",
+      "bytes": 809172,
+      "sha256": "8124b0ea2d187104c5e2cd95a0f937165647e20349c8fd34d4d5ef991821f8f0"
+    }
+  ]
+}

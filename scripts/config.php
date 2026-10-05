@@ -35,6 +35,9 @@ function syslog_shell_exec($cmd, $sudo_user = null) {
 }
 
 if(isset($_GET['threshold'])) {
+  if ($config['MODEL'] == 'BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned') {
+    die('The species-list tester is available for V2.4. V3 uses name-mapped V2.4 filtering.');
+  }
   $threshold = $_GET['threshold'];
   if (!is_numeric($threshold) || $threshold < 0 || $threshold > 1) {
     die('Invalid threshold value');
@@ -174,8 +177,29 @@ if(isset($_GET["latitude"])){
     sleep(5);
   }
 
-  $fh = fopen("/etc/birdnet/birdnet.conf", "w");
-  fwrite($fh, $contents);
+  // Apply the full settings file and wait for model readiness. Only the analysis
+  // service is restarted; disabled optional services stay disabled.
+  set_time_limit(480);
+  $switch_command = "sudo -n /usr/bin/python3 " . escapeshellarg($home . "/BirdNET-Pi/scripts/model_switch.py");
+  $pipes = array();
+  $process = proc_open($switch_command, array(0 => array("pipe", "r"),
+    1 => array("pipe", "w"), 2 => array("pipe", "w")), $pipes);
+  if (!is_resource($process)) {
+    die("Cannot start model switch. Previous settings retained.");
+  }
+  fwrite($pipes[0], $contents);
+  fclose($pipes[0]);
+  $switch_output = stream_get_contents($pipes[1]);
+  $switch_error = stream_get_contents($pipes[2]);
+  fclose($pipes[1]);
+  fclose($pipes[2]);
+  $switch_status = proc_close($process);
+  if ($switch_status !== 0) {
+    die('<p role="alert">' . htmlspecialchars($switch_error, ENT_QUOTES) .
+      '</p><p><a href="config.php">Return to Settings</a></p>');
+  }
+  clearstatcache();
+  $config = get_config(true);
 
   if(isset($apprise_input)){
     $appriseconfig = fopen($home."/BirdNET-Pi/apprise.txt", "w");
@@ -186,14 +210,8 @@ if(isset($_GET["latitude"])){
     $apprisebody = fopen($home."/BirdNET-Pi/body.txt", "w");
     fwrite($apprisebody, $apprise_notification_body);
   }
-  if ($model != $config['MODEL'] || $language != $config['DATABASE_LANG']){
-    if(strlen($language) == 2){
-      syslog_shell_exec("$home/BirdNET-Pi/scripts/install_language_label.sh", $user);
-      syslog(LOG_INFO, "Successfully changed language to '$language' and model to '$model'");
-    }
-  }
-  syslog(LOG_INFO, "Restarting Services");
-  shell_exec("sudo restart_services.sh");
+  syslog(LOG_INFO, trim($switch_output));
+  echo '<p role="status">' . htmlspecialchars(trim($switch_output), ENT_QUOTES) . '</p>';
 }
 
 if(isset($_GET['sendtest']) && $_GET['sendtest'] == "true") {
@@ -235,7 +253,7 @@ $config = get_config($force_reload=true);
 <script>
   document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('modelsel').addEventListener('change', function() {
-    if(this.value == "BirdNET_GLOBAL_6K_V2.4_Model_FP16"){ 
+    if(this.value == "BirdNET_GLOBAL_6K_V2.4_Model_FP16"){
       document.getElementById("soft").style.display="unset";
     } else {
       document.getElementById("soft").style.display="none";
@@ -267,7 +285,7 @@ function sendTestNotification(e) {
       <label for="model">Select a Model: </label>
       <select id="modelsel" name="model" class="testbtn">
       <?php
-      $models = array("BirdNET_GLOBAL_6K_V2.4_Model_FP16", "BirdNET_6K_GLOBAL_MODEL");
+      $models = array("BirdNET_GLOBAL_6K_V2.4_Model_FP16", "BirdNET_6K_GLOBAL_MODEL", "BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned");
       foreach($models as $modelName){
           $isSelected = "";
           if($config['MODEL'] == $modelName){
@@ -278,8 +296,14 @@ function sendTestNotification(e) {
         }
       ?>
       </select>
+      <p>Switching restores the selected model's own detection settings. Wait for
+      confirmation before changing the model again. If startup fails, the previous
+      model is restored automatically.</p>
+      <p>V3 Preview: no human-voice filter; sensitivity is fixed at 1.0. The V2.4
+      range filter is matched by species name; species absent from that filter
+      remain unrestricted. Both older models remain available for rollback.</p>
       <br>
-      <span <?php if($config['MODEL'] == "BirdNET_6K_GLOBAL_MODEL") { ?>style="display: none"<?php } ?> id="soft">
+      <span <?php if($config['MODEL'] != "BirdNET_GLOBAL_6K_V2.4_Model_FP16") { ?>style="display: none"<?php } ?> id="soft">
       <input type="checkbox" name="data_model_version" <?php if($config['DATA_MODEL_VERSION'] == 2) { echo "checked"; };?> >
       <label for="data_model_version">Species range model V2.4 - V2</label>  [ <a target="_blank" href="https://github.com/kahst/BirdNET-Analyzer/discussions/234">Info here</a> ]<br>
       <label for="sf_thresh">Species Occurrence Frequency Threshold [0.0005, 0.99]: </label>

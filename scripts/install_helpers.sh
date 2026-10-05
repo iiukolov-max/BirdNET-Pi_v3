@@ -32,12 +32,12 @@ get_tf_whl () {
       ;;
     *)
       echo "No tflite version found for ${ARCH}-${PY_VERSION}"
-      WHL=''
+      return 1
       ;;
   esac
   if [ -n "$WHL" ]; then
     {
-      curl -L -o $HOME/BirdNET-Pi/$WHL $BASE_URL$WHL
+      curl --fail --location --retry 3 -o "$HOME/BirdNET-Pi/$WHL" "$BASE_URL$WHL" || return 1
       sed "s/tensorflow.*/$WHL/" $HOME/BirdNET-Pi/requirements.txt > requirements_custom.txt
     }
   fi

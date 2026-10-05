@@ -1,4 +1,5 @@
 import glob
+import csv
 import json
 import os
 import re
@@ -86,6 +87,9 @@ def get_language(language=None):
     file_name = os.path.join(MODEL_PATH, f'l18n/labels_{language}.json')
     with open(file_name) as f:
         ret = json.loads(f.read())
+    if get_settings()['MODEL'] == 'BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned':
+        for row in v3_label_rows():
+            ret.setdefault(row['sci_name'], row['com_name'] or row['sci_name'])
     return ret
 
 
@@ -95,9 +99,20 @@ def save_language(labels, language):
         f.write(json.dumps(OrderedDict(sorted(labels.items())), indent=2, ensure_ascii=False))
 
 
+def v3_label_rows():
+    path = os.path.join(MODEL_PATH, 'BirdNET+_V3.0-preview3.1_Global_11K_Labels.csv')
+    with open(path, encoding='utf-8-sig', newline='') as f:
+        rows = list(csv.DictReader(f, delimiter=';'))
+    if len(rows) != 11560 or any(int(row['idx']) != i for i, row in enumerate(rows)):
+        raise ValueError('V3 labels have an unexpected count or order')
+    return rows
+
+
 def get_model_labels(model=None):
     if model is None:
         model = get_settings()['MODEL']
+    if model == 'BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned':
+        return [row['sci_name'] for row in v3_label_rows()]
     file_name = os.path.join(MODEL_PATH, f'{model}_Labels.txt')
     with open(file_name) as f:
         labels = [line.strip() for line in f.readlines()]
@@ -108,7 +123,7 @@ def get_model_labels(model=None):
 
 def set_label_file():
     lang = get_language()
-    labels = [f'{label}_{lang[label]}\n' for label in get_model_labels()]
+    labels = [f'{label}_{lang.get(label, label)}\n' for label in get_model_labels()]
     file_name = os.path.join(MODEL_PATH, 'labels.txt')
     if os.path.islink(file_name):
         os.remove(file_name)

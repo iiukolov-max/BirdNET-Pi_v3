@@ -46,4 +46,16 @@ firstrun.ini
 HUMAN.txt
 include_species_list.txt
 whitelist_species_list.txt
+BirdDB_verified.txt
+.release-update.lock
+.analysis-instance.lock
+.model-profiles.json
+.model-ready.json
+power-logs/
+scripts/db_backups/
+scripts/dump/
+requirements_custom.txt
+*.whl
+model/BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned.tflite
+model/BirdNET+_V3.0-preview3.1_Global_11K_Labels.csv
 /nbproject/private/
