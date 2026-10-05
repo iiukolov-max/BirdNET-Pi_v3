@@ -45,7 +45,9 @@ This comparison follows the **same eight species with the largest raw gains** ac
 - **Fieldfare:** raw detections rose from **564 to 1,638**, but all bins increased from **141 to 216**. Detections per occupied bin rose from **4.00 to 7.58**: both broader output coverage and more repeated detections within bins contributed.
 - **Eurasian Bullfinch:** raw detections rose from **326 to 1,267** and all bins from **80 to 144**; detections per occupied bin rose from **4.08 to 8.80**.
 
-These calculations locate the increase, but do not establish its acoustic cause. Weaker or more distant calls, repeated recognition within a calling bout, changed confidence values around the 0.60 cutoff, and misclassifications are possible explanations. Separating these requires matched audio review or running both models on identical recordings. A raw detection is not a separate bird or necessarily a separate vocalisation.
+**Based on my listening during manual verification, the increase in detections is primarily associated with improved recognition of quiet vocalisations and recordings with substantial background noise.** V3 often recognised calls that were difficult for me to hear in headphones. This is a qualitative observation from reviewing the recordings; the contribution of this improvement to the total increase was not quantified separately.
+
+The count and interval comparisons show where the extra output occurs, but do not by themselves establish its acoustic cause. Repeated recognition within a calling bout, changed confidence values around the 0.60 cutoff and misclassifications may also contribute. A matched-audio comparison would help quantify these contributions. A raw detection is not a separate bird or necessarily a separate vocalisation.
 
 ## 3. How the reviewed FP proportion changed by species
 
@@ -115,7 +117,7 @@ Both used minimum confidence **0.60** and overlap **0**. Sensitivity was **1.25 
 
 This is one location, one autumn period and two separate audio chains, not an identical-audio benchmark. Uptime was not reconstructed from recording logs; silence in the detection export is not treated as downtime. Edge bins are partial. Neighbouring detections and bins can represent one calling bout, so they are not independent experimental replicates. Full recall cannot be calculated because sounds missed by both models are absent from the exports.
 
-The practical finding is **more confirmed species and broader confirmed temporal coverage with V3, alongside species-specific improvements and regressions in reviewed error proportion**. Matched audio review is needed to determine why V3 generates more output and whether it detects weaker calls more successfully.
+The practical finding is **more confirmed species and broader confirmed temporal coverage with V3, alongside species-specific improvements and regressions in reviewed error proportion**. My manual listening suggests that better recognition of quiet calls and noisy recordings is the main reason for the extra output; a matched-audio comparison is needed to quantify this effect.
 
 ### Exact numbers for further analysis
 
