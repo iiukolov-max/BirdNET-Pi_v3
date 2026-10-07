@@ -53,6 +53,8 @@ as_owner python3 "$root/scripts/download_v3.py"
 as_owner "$root/birdnet/bin/python3" -m pip install 'numpy<2; python_version < "3.13"' 'numpy; python_version >= "3.13"' 'soxr==1.0.0'
 as_owner python3 "$root/scripts/migrate_review_db.py"
 as_owner bash "$root/scripts/install_language_label.sh"
+bash "$root/scripts/install_startup_logging.sh"
+bash "$root/scripts/install_audio_runtime.sh"
 sudo install -d /etc/systemd/system/birdnet_analysis.service.d
 printf '[Service]\nEnvironment=OPENBLAS_NUM_THREADS=1\nEnvironment=OMP_NUM_THREADS=1\nEnvironment=MKL_NUM_THREADS=1\nEnvironment=NUMEXPR_NUM_THREADS=1\n' | sudo tee /etc/systemd/system/birdnet_analysis.service.d/35-library-threads.conf >/dev/null
 sudo systemctl daemon-reload

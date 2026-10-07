@@ -12,8 +12,9 @@ if [ "$LOGGING_LEVEL" == "info" ] || [ "$LOGGING_LEVEL" == "debug" ];then
   set -x
 fi
 
+FREQSHIFT_OPT='-af asetpts=N/SR/TB'
 if [ "$ACTIVATE_FREQSHIFT_IN_LIVESTREAM" == "true" ]; then
-  FREQSHIFT_OPT='-af rubberband=pitch='${FREQSHIFT_LO}'/'${FREQSHIFT_HI}
+  FREQSHIFT_OPT='-af rubberband=pitch='${FREQSHIFT_LO}'/'${FREQSHIFT_HI}',asetpts=N/SR/TB'
 fi
 
 if [ -z ${REC_CARD} ];then
@@ -41,6 +42,8 @@ elif [[ ! -z ${RTSP_STREAM} ]];then
     ${FREQSHIFT_OPT} \
     -f mp3 icecast://source:${ICE_PWD}@localhost:8000/stream -re
 else
+	if ! pulseaudio --check; then pulseaudio --start; fi
+	REC_CARD=$(python3 /usr/local/bin/prepare_microphone.py --pulse --device "${REC_CARD:-default}") || exit 1
 	ffmpeg -nostdin -loglevel $LOGGING_LEVEL -ac ${CHANNELS} -f alsa -i ${REC_CARD} -acodec libmp3lame \
     -b:a 320k -ac ${CHANNELS} -content_type 'audio/mpeg' \
     ${FREQSHIFT_OPT} \

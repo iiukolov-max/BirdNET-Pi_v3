@@ -47,6 +47,8 @@ def fixture(base):
     write(seed / 'scripts/download_v3.py', 'print("Fixture model verified")\n')
     write(seed / 'scripts/check_model_ready.py', 'import os,sys; sys.exit(1 if os.environ.get("BIRDNET_TEST_FAIL") == "ready" else 0)\n')
     write(seed / 'scripts/install_language_label.sh', '#!/bin/sh\nexit 0\n')
+    write(seed / 'scripts/install_startup_logging.sh', '#!/bin/sh\nexit 0\n')
+    write(seed / 'scripts/install_audio_runtime.sh', '#!/bin/sh\nexit 0\n')
     write(seed / '.gitignore', 'scripts/birds.db*\n.model-profiles.json\nbirdnet.conf\nBirdSongs/\nbirdnet/\n.release-update.lock\n')
     write(seed / 'version.txt', 'old\n')
     git(seed, 'add', '.')

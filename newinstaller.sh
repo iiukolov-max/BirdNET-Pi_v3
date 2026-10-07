@@ -32,7 +32,18 @@ if [ "$headless" = 1 ]; then
   fi
   echo 'Selected headless profile disables graphics/camera and CMA; boot files will be backed up.'
 fi
-sudo -n true || { echo 'Passwordless sudo is required.' >&2; exit 1; }
+sudo -n true 2>/dev/null || sudo -v || { echo 'Sudo access is required.' >&2; exit 1; }
+# Keep interactive sudo authentication valid during lengthy package downloads.
+# No permanent sudoers policy is installed by this bootstrap.
+installer_pid=$$
+(
+  while kill -0 "$installer_pid" 2>/dev/null; do
+    sleep 45
+    sudo -n -v || exit
+  done
+) </dev/null >/dev/null 2>&1 &
+sudo_refresh_pid=$!
+trap 'kill "$sudo_refresh_pid" 2>/dev/null || true' EXIT
 packages=()
 for command in git jq; do
   command -v "$command" >/dev/null || packages+=("$command")

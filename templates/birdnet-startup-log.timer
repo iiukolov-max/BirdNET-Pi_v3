@@ -1,0 +1,10 @@
+[Unit]
+Description=Log system time and RTC state once after boot
+
+[Timer]
+OnBootSec=2min
+AccuracySec=5s
+Unit=birdnet-startup-log.service
+
+[Install]
+WantedBy=timers.target

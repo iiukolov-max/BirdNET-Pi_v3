@@ -47,6 +47,8 @@ if [ -n "${RTSP_STREAM}" ];then
   wait
 else
   if ! pulseaudio --check;then pulseaudio --start;fi
+  # Share the selected capture source with live streaming through PulseAudio.
+  REC_CARD=$(python3 /usr/local/bin/prepare_microphone.py --pulse --device "${REC_CARD:-default}") || exit 1
   if pgrep arecord &> /dev/null ;then
     echo "Recording"
   else

@@ -1,0 +1,9 @@
+/var/log/birdnet/startup.jsonl {
+    daily
+    rotate 14
+    maxsize 5M
+    compress
+    missingok
+    notifempty
+    create 0640 root root
+}

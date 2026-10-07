@@ -64,8 +64,11 @@ python3 "$my_dir/scripts/migrate_review_db.py" || exit 1
 sudo install -d /etc/systemd/system/birdnet_analysis.service.d
 printf '[Service]\nEnvironment=OPENBLAS_NUM_THREADS=1\nEnvironment=OMP_NUM_THREADS=1\nEnvironment=MKL_NUM_THREADS=1\nEnvironment=NUMEXPR_NUM_THREADS=1\n' | sudo tee /etc/systemd/system/birdnet_analysis.service.d/35-library-threads.conf >/dev/null
 sudo systemctl daemon-reload
+bash "$my_dir/scripts/install_startup_logging.sh"
+bash "$my_dir/scripts/install_audio_runtime.sh"
 if [ "${BIRDNET_ZERO2_HEADLESS:-0}" = 1 ]; then
   sudo python3 "$my_dir/scripts/zero2_headless.py" --apply || exit 1
+  sudo python3 "$my_dir/scripts/configure_zero2_runtime.py" || exit 1
 fi
 
 exit 0
