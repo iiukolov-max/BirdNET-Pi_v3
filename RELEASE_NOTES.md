@@ -1,6 +1,6 @@
-﻿# BirdNET-Pi V3 — Preview 3
+# BirdNET-Pi V3 — Preview 3
 
-Release preparation: 2026-10-08. This preview combines the accepted Orange Pi contribution with recording, analysis, settings and Overview changes.
+Released: 2026-10-08. This preview combines the accepted Orange Pi contribution with recording, analysis, settings and Overview changes.
 
 ## Orange Pi contribution
 
