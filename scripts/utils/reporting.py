@@ -9,12 +9,10 @@ import io
 import soundfile
 from time import sleep
 
-import requests
-from PIL import Image, ImageDraw, ImageFont
 
 from .helpers import get_settings, get_font, DB_PATH
 from .classes import Detection, ParseFileName
-from .notifications import sendAppriseNotifications
+from .spectrograms import render_spectrogram
 
 log = logging.getLogger(__name__)
 
@@ -41,36 +39,13 @@ def extract_safe(in_file, out_file, start, stop):
         ex_len = 6
     spacer = (ex_len - 3) / 2
     safe_start = max(0, start - spacer)
-    safe_stop = min(conf.getint('RECORDING_LENGTH'), stop + spacer)
+    safe_stop = min(soundfile.info(in_file).duration, stop + spacer)
 
     extract(in_file, out_file, safe_start, safe_stop)
 
 
 def spectrogram(in_file, title, comment, raw=0):
-    fd, tmp_file = tempfile.mkstemp(suffix='.png')
-    os.close(fd)
-    args = ['sox', '-V1', f'{in_file}', '-n', 'remix', '1', 'rate', '24k', 'spectrogram',
-            '-t', '', '-c', '', '-o', tmp_file]
-    args += ['-r'] if int(raw) else []
-
-    result = subprocess.run(args, check=True, capture_output=True)
-    ret = result.stdout.decode('utf-8')
-    err = result.stderr.decode('utf-8')
-    if err:
-        raise RuntimeError(f'{ret}:\n {err}')
-    img = Image.open(tmp_file)
-    height = img.size[1]
-    width = img.size[0]
-    draw = ImageDraw.Draw(img)
-    title_font = ImageFont.truetype(get_font()['path'], 13)
-    _, _, w, _ = draw.textbbox((0, 0), title, font=title_font)
-    draw.text(((width-w)/2, 6), title, fill="white", font=title_font)
-
-    comment_font = ImageFont.truetype(get_font()['path'], 11)
-    _, _, _, h = draw.textbbox((0, 0), comment, font=comment_font)
-    draw.text((1, height - (h + 1)), comment, fill="white", font=comment_font)
-    img.save(f'{in_file}.png')
-    os.remove(tmp_file)
+    return render_spectrogram(in_file, title, comment, raw)
 
 
 def extract_detection(file: ParseFileName, detection: Detection):
@@ -78,12 +53,18 @@ def extract_detection(file: ParseFileName, detection: Detection):
     new_file_name = f'{detection.common_name_safe}-{detection.confidence_pct}-{detection.date}-birdnet-{file.RTSP_id}{detection.time}.{conf["AUDIOFMT"]}'
     new_dir = os.path.join(conf['EXTRACTED'], 'By_Date', f'{detection.date}', f'{detection.common_name_safe}')
     new_file = os.path.join(new_dir, new_file_name)
-    if os.path.isfile(new_file):
+    if os.path.isfile(new_file) and os.path.getsize(new_file)>0:
         log.warning('Extraction exists. Moving on: %s', new_file)
     else:
         os.makedirs(new_dir, exist_ok=True)
-        extract_safe(file.file_name, new_file, detection.start, detection.stop)
-        spectrogram(new_file, detection.common_name, new_file.replace(os.path.expanduser('~/'), ''), conf['RAW_SPECTROGRAM'])
+        temporary=new_file+'.partial.'+conf['AUDIOFMT']
+        try:
+            extract_safe(file.file_name, temporary, detection.start, detection.stop)
+            os.replace(temporary,new_file)
+        finally:
+            if os.path.exists(temporary):os.remove(temporary)
+        if not os.path.isfile('/etc/birdnet/lazy-spectrograms.enabled'):
+            spectrogram(new_file, detection.common_name, new_file.replace(os.path.expanduser('~/'), ''), conf['RAW_SPECTROGRAM'])
     return new_file
 
 
@@ -157,6 +138,7 @@ def apprise(file: ParseFileName, detections: [Detection]):
         # Apprise of detection if not already alerted this run.
         if detection.species not in species_apprised_this_run:
             try:
+                from .notifications import sendAppriseNotifications
                 sendAppriseNotifications(detection.scientific_name, detection.common_name, str(detection.confidence), str(detection.confidence_pct),
                                          os.path.basename(detection.file_name_extr), detection.date, detection.time, str(detection.week),
                                          conf['LATITUDE'], conf['LONGITUDE'], conf['CONFIDENCE'], conf['SENSITIVITY'], conf['OVERLAP'])
@@ -168,6 +150,7 @@ def apprise(file: ParseFileName, detections: [Detection]):
 
 
 def bird_weather(file: ParseFileName, detections: [Detection]):
+    import requests
     conf = get_settings()
     if conf['BIRDWEATHER_ID'] == "":
         return
@@ -218,6 +201,7 @@ def bird_weather(file: ParseFileName, detections: [Detection]):
 
 
 def heartbeat():
+    import requests
     conf = get_settings()
     if conf['HEARTBEAT_URL']:
         try:

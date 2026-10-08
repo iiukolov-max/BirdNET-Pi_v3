@@ -4,7 +4,7 @@ This candidate has been checked with local Git and SQLite fixtures. Privileged s
 
 ## Fresh installation versus migration
 
-`newinstaller.sh` is for a new installation under user `pi`. It refuses an existing application directory or configuration. It never replaces an existing installation or requests an automatic reboot.
+`newinstaller.sh` is for a new installation under the current regular user account. It refuses an existing application directory or configuration. It never replaces an existing installation or requests an automatic reboot.
 
 An existing installation must first preserve and integrate its local modifications. The updater refuses modified tracked files, staged changes, diverged history and collisions with untracked files. It uses this fork's `origin/main`, including when the installed code originally came from a tag.
 

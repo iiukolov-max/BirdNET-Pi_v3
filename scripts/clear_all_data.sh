@@ -8,9 +8,25 @@ source /etc/birdnet/birdnet.conf
 USER=${BIRDNET_USER}
 HOME=/home/${BIRDNET_USER}
 my_dir=${HOME}/BirdNET-Pi/scripts
+# Serialize against Settings and the manual-analysis start button until done.
+exec 9>/run/lock/birdnet-model-switch.lock
+flock -n 9 || { echo 'Another settings, analysis-start or cleanup operation is running.' >&2; exit 1; }
+
 echo "Stopping services"
-sudo systemctl stop birdnet_recording.service
-sudo systemctl stop birdnet_analysis.service
+if systemctl cat birdnet-archive-analysis.service >/dev/null 2>&1; then
+  # Prevent ExecStopPost from restarting microphone capture during deletion.
+  sudo /usr/bin/python3 "$my_dir/archive_recording_pause.py" cancel || exit 1
+  sudo systemctl stop birdnet-archive-analysis.service || exit 1
+fi
+sudo systemctl stop birdnet_recording.service || exit 1
+sudo systemctl stop birdnet_analysis.service || exit 1
+for unit in birdnet-archive-analysis.service birdnet_recording.service birdnet_analysis.service; do
+  state=$(systemctl show "$unit" -p ActiveState --value) || exit 1
+  case "$state" in
+    inactive|failed|'') ;;
+    *) echo "Cannot clear data while $unit is $state." >&2; exit 1 ;;
+  esac
+done
 echo "Removing all data . . . "
 sudo rm -drf "${RECS_DIR}"
 sudo rm -f "${IDFILE}"
@@ -45,7 +61,7 @@ chmod -R g+rw $my_dir
 chmod -R g+rw ${RECS_DIR}
 
 
-echo "Dropping and re-creating database"
+echo "Ensuring database schema exists; existing detections are preserved"
 createdb.sh
 echo "Re-generating BirdDB.txt"
 touch $(dirname ${my_dir})/BirdDB.txt

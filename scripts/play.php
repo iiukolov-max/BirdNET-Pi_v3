@@ -26,7 +26,12 @@ if(isset($_GET['deletefile'])) {
   ensure_db_ok($statement1);
   $statement1->bindValue(':file_name', explode("/", $_GET['deletefile'])[2]);
   $file_pointer = $home."/BirdSongs/Extracted/By_Date/".$_GET['deletefile'];
-  if (!exec("sudo rm $file_pointer 2>&1 && sudo rm $file_pointer.png 2>&1", $output)) {
+  $delete_command = 'sudo rm -- ' . escapeshellarg($file_pointer);
+  if (is_file($file_pointer . '.png')) {
+    $delete_command .= ' && sudo rm -- ' . escapeshellarg($file_pointer . '.png');
+  }
+  exec($delete_command . ' 2>&1', $output, $delete_status);
+  if ($delete_status === 0) {
     echo "OK";
   } else {
     echo "Error - file deletion failed : " . implode(", ", $output) . "<br>";
@@ -232,7 +237,7 @@ if (get_included_files()[0] === __FILE__) {
 }
 
 ?>
-<script src="static/custom-audio-player.js"></script>
+<script src="static/custom-audio-player.js?v=lazy-spectrogram-1"></script>
 <script>
 function deleteDetection(filename,copylink=false) {
   if (confirm("Are you sure you want to delete this detection from the database?") == true) {

@@ -10,12 +10,26 @@ import subprocess
 import sys
 import tempfile
 import unittest
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'scripts'))
 from unittest.mock import patch
 
 SOURCE = Path(__file__).resolve().parents[1]
 
 
 class InstallationPathsTest(unittest.TestCase):
+    def test_archive_unit_uses_the_selected_owner_and_path(self):
+        from render_archive_unit import render
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'orangepi' / 'BirdNET-Pi'
+            (root / 'templates').mkdir(parents=True)
+            shutil.copy2(SOURCE/'templates/birdnet-archive-analysis.service',root/'templates/birdnet-archive-analysis.service')
+            unit=render(root,'orangepi')
+            self.assertIn('User=orangepi\n',unit)
+            self.assertIn('WorkingDirectory='+str(root.resolve())+'\n',unit)
+            self.assertIn('"'+str(root.resolve())+'/scripts/archive_analysis.py" worker',unit)
+            self.assertNotIn('/home/pi/',unit)
+            self.assertNotIn('@BIRDNET_',unit)
+
     def test_export_from_another_home_through_symlink(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'orangepi' / 'BirdNET-Pi'

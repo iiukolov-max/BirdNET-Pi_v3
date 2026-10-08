@@ -2,8 +2,8 @@
 Description=Log system time and RTC state once after boot
 
 [Timer]
-OnBootSec=2min
-AccuracySec=5s
+OnBootSec=15s
+AccuracySec=1s
 Unit=birdnet-startup-log.service
 
 [Install]

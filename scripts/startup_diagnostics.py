@@ -4,8 +4,10 @@ import argparse
 import datetime as dt
 import json
 import os
+import socket
 from pathlib import Path
 import subprocess
+import sys
 
 
 def read(path):
@@ -59,10 +61,11 @@ def snapshot():
     return {"schema_version": 1, "event": "time_and_rtc_snapshot",
             "observed_at_utc": now.isoformat(), "observed_at_local": now.astimezone().isoformat(),
             "boot_id": read("/proc/sys/kernel/random/boot_id"),
+            "hostname": socket.gethostname(),
             "uptime_seconds": uptime,
             "boot_time_utc_estimate": (now - dt.timedelta(seconds=uptime)).isoformat(),
             "clock": properties(["timedatectl", "show", "-p", "Timezone", "-p", "NTPSynchronized",
-                                 "-p", "NTP", "-p", "LocalRTC"]),
+                                 "-p", "NTP", "-p", "LocalRTC", "-p", "TimeUSec", "-p", "RTCTimeUSec"]),
             "rtc_detected_by_kernel": bool(rtc_devices), "rtc_devices": rtc_devices,
             "rtc_read": command(["hwclock", "--show"]) if rtc_devices else None,
             "services": services}
@@ -71,6 +74,7 @@ def snapshot():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log-file", type=Path, help="Append one JSON record; omit to print only")
+    parser.add_argument("--history-file", type=Path, help="Publish latest five boot dates and RTC presence for Overview")
     args = parser.parse_args()
     record = snapshot()
     line = json.dumps(record, ensure_ascii=False)
@@ -79,6 +83,10 @@ def main():
         descriptor = os.open(args.log_file, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o640)
         with os.fdopen(descriptor, "a", encoding="utf-8") as output:
             output.write(line + "\n")
+        if args.history_file:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from read_boot_log import publish_history
+            publish_history(args.log_file, args.history_file)
     print(line, flush=True)
 
 

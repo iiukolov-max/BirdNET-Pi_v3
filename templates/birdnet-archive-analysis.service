@@ -1,0 +1,20 @@
+[Unit]
+Description=Manually analyze completed BirdNET archive recordings
+
+[Service]
+Type=simple
+User=@BIRDNET_USER@
+WorkingDirectory=@BIRDNET_ROOT@
+Environment=OPENBLAS_NUM_THREADS=1
+Environment=OMP_NUM_THREADS=1
+Environment=MKL_NUM_THREADS=1
+ExecStartPre=+/usr/bin/python3 "@BIRDNET_ROOT@/scripts/archive_recording_pause.py" pause
+ExecStart="@BIRDNET_ROOT@/birdnet/bin/python3" "@BIRDNET_ROOT@/scripts/archive_analysis.py" worker
+ExecStopPost=+/usr/bin/python3 "@BIRDNET_ROOT@/scripts/archive_recording_pause.py" restore
+Nice=10
+CPUWeight=10
+IOWeight=10
+IOSchedulingClass=idle
+Restart=no
+TimeoutStopSec=20
+TimeoutStartSec=240

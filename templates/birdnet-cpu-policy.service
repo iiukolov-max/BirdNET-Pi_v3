@@ -1,0 +1,15 @@
+[Unit]
+Description=Automatic economy recording and analysis CPU profiles
+After=local-fs.target birdnet-minimal-services.service
+Before=birdnet_recording.service birdnet-archive-analysis.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/libexec/economy_cpu_policy.py
+ExecStopPost=/usr/bin/python3 /usr/local/libexec/economy_cpu_policy.py restore
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=25
+
+[Install]
+WantedBy=multi-user.target

@@ -1,57 +1,56 @@
-# BirdNET-Pi V3
+﻿# BirdNET-Pi V3
 
-Local acoustic monitoring for Raspberry Pi, based on [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), with BirdNET+ V3 Preview, manual detection review and export from the web interface.
+Local acoustic monitoring based on [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), with BirdNET+ V3 Preview, recording modes and manual detection review.
 
-**Current release:** [v3-preview.2](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases/tag/v3-preview.2) · [Release notes](RELEASE_NOTES.md)
+**Next release:** v3-preview.3 · [Release notes](RELEASE_NOTES.md) · [Published releases](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases)
 
 ## Features
 
-- BirdNET+ V3 recognition of birds, mammals, insects and amphibians represented in its label list. Earlier BirdNET models remain available in **Tools → Settings**.
-- Manual **TP / FP** marks: confirm, reject or remove a review.
-- **Tools → System Controls** generates and downloads `BirdDB_verified.txt`, containing all detections and their review status.
-- Automatic local microphone discovery, USB preference and maximum adjustable capture gain. Recording and streaming share the automatically selected input.
-- One time/RTC diagnostic snapshot per boot, approximately two minutes after startup.
+- Full BirdNET+ V3 Preview recognition of species represented in its label list, including birds and other animals. Earlier acoustic models remain selectable.
+- **Normal:** microphone recording and automatic analysis. **Economy:** retain complete recordings and start archive analysis manually from Overview. Recording pauses during manual analysis and resumes when the run ends; rebooting in Economy starts recording without restarting analysis.
+- Separate service permissions in Settings constrain optional services across mode changes, direct service starts and reboots. Recording and analysis remain mandatory, subject to the selected mode.
+- Economy CPU control reduces recording CPU use and restores analysis capacity when needed. Normal restores the original CPU policy. Hardware capabilities determine available frequencies.
+- Overview shows detections, species and verified species for the week/month, newly encountered species, recent detections and the last three boots with RTC information. Detection links open the specific recording's spectrogram.
+- Archive progress separates the current queue from files added later. Storage estimates use recording settings, measured file sizes and the configured cleanup threshold.
+- Manual TP/FP review and export of all detections with their review status through System Controls.
+- Fresh-install defaults: **Normal**, acoustic **V3**, geographic model **V3.0.4**, all optional services allowed. Existing installation settings are preserved.
 
 ## Install
 
-Use a new SD card with **Raspberry Pi OS Lite 64-bit Trixie**. Create user **`pi`**, enable SSH and configure networking in Raspberry Pi Imager. Log in as `pi`; sudo may request your password.
+The Raspberry Pi configuration was tested on **Raspberry Pi OS Lite 64-bit Trixie**, including Zero 2 W. Use a new SD card, enable SSH and configure networking. Log in as your regular installation user; sudo may request a password.
 
-Install the published release:
+Orange Pi support was contributed and hardware-tested by [miketimofeev](https://github.com/miketimofeev) in [PR #1: Add orangepi support](https://github.com/iiukolov-max/BirdNET-Pi_v3/pull/1). Our integration and reboot checks were performed on Raspberry Pi. The installer uses the current account and its home directory rather than requiring the username `pi`.
+
+Install the latest published preview:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.2/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.2 bash birdnet-install.sh
 ```
 
-**For Raspberry Pi Zero 2 W without a display or camera**, use this command instead:
+The command above remains pinned to Preview 2 until Preview 3 is published. For the prepared Preview 3 source, see its release notes and publication status.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.2/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.2 bash birdnet-install.sh --zero2-headless
-```
+For **Raspberry Pi Zero 2 W without a display or camera**, add `--zero2-headless` to the installer command. This Raspberry Pi profile backs up boot settings, applies `cma=0` and `gpu_mem=16`, disables graphics/camera and adds 1 GiB disk swap while retaining zram. Do not select this profile for Orange Pi.
 
-The Zero 2 W profile backs up boot settings, applies `cma=0` and `gpu_mem=16`, disables graphics/camera and adds **1 GiB disk swap**, retaining zram. On the tested Trixie device, CMA=0 and zram alone were insufficient for V3. Disk swap uses storage and writes to the SD card.
+After successful installation, run `sudo reboot` and open `http://<device-hostname>.local` or the device's IP address. Check location, audio format and recording length in **Tools → Settings**. Confirm that recording and analysis work. Installation downloads dependencies and checksum-verified model files; recognition then runs locally.
 
-After successful installation, run `sudo reboot`. Open `http://<your-Pi-hostname>.local` or the Pi's IP address, then check location and recording settings under **Tools → Settings**. Confirm that recording and analysis work. See [Trixie setup and post-reboot checks](docs/TRIXIE_INSTALLATION.md).
+The fresh installer refuses an existing installation. See [updates and recovery](docs/UPDATES_AND_RECOVERY.md) for updates, and [Trixie setup](docs/TRIXIE_INSTALLATION.md) for Raspberry Pi checks.
 
-Installation requires internet access to download dependencies and checksum-verified model files; recognition runs locally afterwards. The fresh installer refuses an existing installation: use [updates and recovery](docs/UPDATES_AND_RECOVERY.md) and back up your data first.
+## Validation and limitations
 
-## Diagnostics
-
-See [boot history, RTC and microphone diagnostics](docs/STARTUP_LOGGING.md). Logging runs once per boot; a missing RTC does not prevent operation.
-
-## Compatibility and limitations
-
-- **Tested:** Trixie on Zero 2 W with Sound Blaster Play! 3, recording, V3 inference and reboot startup. **Bookworm is not yet verified** for this release.
-- The installation was interrupted and resumed. A fully uninterrupted run of the revised installer, a full existing-device upgrade, attached RTC reading and long-term stability remain untested.
-- V3 is a developer preview. Recognition depends on species coverage, recording quality and settings; more detections do not establish greater accuracy. Human-voice detection and a validated bird/noise prefilter are unavailable. The integration uses the V2 geographic model; some V3 species are outside its coverage.
-- Zero 2 W has limited memory. CPU frequency and radio settings are not changed automatically; performance and battery life depend on the deployment.
-- Updater backups do not include the full audio archive, and an automatic rollback of the entire update is not implemented.
+- Raspberry Pi checks cover real Normal/Economy transitions and reboots, recording new 30-second FLAC files, analysis and disabled optional services remaining stopped.
+- A Zero 2 W archive run processed 60 FLAC recordings without failures; warm processing averaged about 18.1 seconds per 30-second file. This is a device-specific measurement. Two inference threads are retained; the full V3 model remains in use.
+- Orange Pi hardware testing is credited to the contributor. The new release's additional recording-mode and service-policy features have not been hardware-tested by us on Orange Pi.
+- V3 is a developer preview. Its human-voice filter is unavailable and sensitivity is fixed at 1.0. Geographic filtering matches species names; unmatched species remain unrestricted.
+- An uninterrupted clean installation of the final Preview 3 source, a complete existing-device upgrade, attached RTC operation and long-term endurance remain to be verified. Updater backups exclude the complete audio archive; full automatic update rollback is unavailable.
 
 ## Documentation and sources
 
-- [Detailed features, measurements and validation](docs/PROJECT_DETAILS.md)
+- [Recording modes and service policy](docs/RECORDING_MODES.md)
+- [Archive performance](docs/ARCHIVE_PERFORMANCE.md)
+- [Boot history, RTC and microphone diagnostics](docs/STARTUP_LOGGING.md)
+- [Detailed project notes](docs/PROJECT_DETAILS.md)
 - [V2.4 versus V3 field comparison](docs/model-comparison/field-comparison.md)
 - [Model sources and terms](docs/MODEL_SOURCES.md)
-- [Preserved upstream README](docs/UPSTREAM_README.md)
-- [Source licence](LICENSE)
+- [Preserved upstream README](docs/UPSTREAM_README.md) · [Source licence](LICENSE)
 
-This fork retains upstream attribution and licence terms. Review the source licence and the model's separate terms before use.
+This fork retains upstream attribution and licence terms. Models have separate terms; see their linked sources.

@@ -55,11 +55,18 @@ as_owner python3 "$root/scripts/migrate_review_db.py"
 as_owner bash "$root/scripts/install_language_label.sh"
 bash "$root/scripts/install_startup_logging.sh"
 bash "$root/scripts/install_audio_runtime.sh"
+bash "$root/scripts/install_recording_modes.sh"
 sudo install -d /etc/systemd/system/birdnet_analysis.service.d
 printf '[Service]\nEnvironment=OPENBLAS_NUM_THREADS=1\nEnvironment=OMP_NUM_THREADS=1\nEnvironment=MKL_NUM_THREADS=1\nEnvironment=NUMEXPR_NUM_THREADS=1\n' | sudo tee /etc/systemd/system/birdnet_analysis.service.d/35-library-threads.conf >/dev/null
 sudo systemctl daemon-reload
 # Recording and the audio archive stay in place; reload the inference worker only.
-sudo systemctl restart birdnet_analysis.service
-sudo systemctl is-active --quiet birdnet_analysis.service
-sudo python3 "$root/scripts/check_model_ready.py"
+if as_owner python3 "$root/scripts/operation_mode.py"; then
+  sudo systemctl restart birdnet_analysis.service
+  sudo systemctl is-active --quiet birdnet_analysis.service
+  sudo python3 "$root/scripts/check_model_ready.py"
+else
+  sudo systemctl stop birdnet_analysis.service
+  sudo systemctl restart birdnet_recording.service
+  sudo systemctl is-active --quiet birdnet_recording.service
+fi
 echo 'Code update completed. Verify model readiness and recent detections in the web interface.'

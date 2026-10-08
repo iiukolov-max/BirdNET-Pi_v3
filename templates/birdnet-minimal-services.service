@@ -1,0 +1,13 @@
+[Unit]
+Description=Enforce BirdNET recording, analysis and browser profile
+After=local-fs.target
+Before=birdnet_recording.service birdnet_analysis.service birdnet-archive-analysis.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /usr/local/libexec/birdnet_minimal_services.py --boot
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

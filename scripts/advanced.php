@@ -2,12 +2,16 @@
 ini_set('display_errors', 1);
 error_reporting(E_ERROR);
 
-require_once "scripts/common.php";
+require_once __DIR__.'/common.php';
 $home = get_home();
 $config = get_config();
 $user = get_user();
 
 ensure_authenticated();
+require_once __DIR__.'/settings_async.php';
+require_once __DIR__.'/recording_ui.php';
+if ($_SERVER['REQUEST_METHOD']==='POST') $_GET=array_merge($_GET,$_POST);
+$recording_ui=recording_strings($config['DATABASE_LANG'] ?? 'en');
 
 if (isset($_GET['run_species_count'])) {
    echo "<script>";
@@ -18,6 +22,11 @@ if (isset($_GET['run_species_count'])) {
  }
 
 if(isset($_GET['submit'])) {
+  if (($config['OPERATION_MODE'] ?? 'normal') === 'archive' &&
+      !in_array($_GET['audiofmt'] ?? $config['AUDIOFMT'], array('flac','mp3','ogg','opus','wav'), true)) {
+    die('Record only supports FLAC, MP3, Ogg, Opus and WAV. Settings were not saved.');
+  }
+
   $contents = file_get_contents('/etc/birdnet/birdnet.conf');
   $restart_livestream = false;
   $update_caddyfile = false;
@@ -264,20 +273,12 @@ if (isset($_GET["max_files_species"])) {
 	}
   }
 
-  //Finally write the data out. some sections do this themselves in order to have the new settings ready for the services that will be restarted
-  //but will doubly ensure the settings are saved after any modification
-  $fh = fopen('/etc/birdnet/birdnet.conf', "w");
-  fwrite($fh, $contents);
-  $config = get_config($force_reload=true);
 
-  syslog(LOG_INFO, "Restarting Services");
-  if ($update_caddyfile){
-      exec('sudo /usr/local/bin/update_caddyfile.sh > /dev/null 2>&1 &');
+  session_write_close();
+  try {$settings_job=enqueue_settings($contents);} catch (Throwable $error) {
+    http_response_code(500);die(htmlspecialchars($error->getMessage(),ENT_QUOTES));
   }
-  shell_exec("sudo restart_services.sh");
-  if ($restart_livestream) {
-    exec("sudo systemctl restart livestream.service");
-  }
+  settings_response($settings_job);
 }
 
 $count = 6000;
@@ -292,7 +293,7 @@ $count = 6000;
 $newconfig = get_config();
 ?>
       <div class="brbanner"><h1>Advanced Settings</h1></div><br>
-    <form id="advancedform" action="" method="GET">
+    <form id="advancedform" action="" method="GET" data-i18n="<?php echo recording_text(json_encode($recording_ui)); ?>">
       <table class="settingstable"><tr><td>
       <h2>Privacy Threshold</h2>
       <div class="slidecontainer">
@@ -646,7 +647,7 @@ foreach($formats as $format){
 if(isset($_GET['submit'])){
   echo '<script>alert("Settings successfully updated");</script>';
 }
-echo "Update Settings";
+echo recording_text($recording_ui['update']);
 ?>
       </button></div>
       </form>
@@ -656,3 +657,5 @@ echo "Update Settings";
 </div>
       </form>
 </div>
+
+<script defer src="static/settings-async.js"></script>

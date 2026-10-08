@@ -1,10 +1,12 @@
 [Unit]
 Description=BirdNET boot time, service startup and RTC diagnostics
-After=birdnet_analysis.service birdnet_recording.service caddy.service
+After=local-fs.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/python3 /usr/local/bin/startup_diagnostics.py --log-file /var/log/birdnet/startup.jsonl
+ExecStart=/usr/bin/python3 /usr/local/bin/startup_diagnostics.py --log-file /var/log/birdnet/startup.jsonl --history-file /var/lib/birdnet-boot-history/recent.json
+StateDirectory=birdnet-boot-history
+StateDirectoryMode=0755
 LogsDirectory=birdnet
 LogsDirectoryMode=0750
 UMask=0027

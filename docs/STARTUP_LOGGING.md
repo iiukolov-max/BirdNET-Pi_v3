@@ -1,17 +1,29 @@
 # Current system time, RTC and boot logging
 
-New installations enable `birdnet-startup-log.timer`. It records a snapshot two
-minutes after each boot, once per boot, in `/var/log/birdnet/startup.jsonl`
+New installations enable `birdnet-startup-log.timer`. It records a snapshot approximately 15
+seconds after each boot, once per boot, in `/var/log/birdnet/startup.jsonl`
 and the system journal. Logs rotate daily or at 5 MiB when logrotate runs,
 retaining fourteen compressed files.
 
-Read the latest snapshot:
+Read the last ten boots in a compact, human-readable format (local candidate):
 
 ```bash
-sudo tail -n 1 /var/log/birdnet/startup.jsonl | python3 -m json.tool
-sudo journalctl -u birdnet-startup-log.service -b
-sudo tail -f /var/log/birdnet/startup.jsonl
+sudo birdnet-boot-log
+sudo birdnet-boot-log --last 1
+sudo birdnet-boot-log --all
+sudo birdnet-boot-log --verbose
 ```
+
+The default output uses compact terminal blocks:
+
+```text
+----- boot -----
+ts_sys=2026-05-25T07:45:55+03:00 host=uimalinka3 uptime=16s
+rtc=2026-05-25 07:45:57.005833+03:00
+timedatectl: no Mon 2026-05-25 07:45:58 MSK Mon 2026-05-25 07:45:58 MSK
+```
+
+This is an example, not a hardware measurement. If RTC cannot be read, the third line is `rtc=unavailable (hwclock read failed)`. The last line contains saved NTPSynchronized, TimeUSec and RTCTimeUSec values. Missing fields in older snapshots are `unavailable`. Use `--verbose` for device details, estimated boot time and service startup delays. Rotated/compressed logs are included and duplicate boot IDs collapsed. Viewing history does not create a snapshot or change either clock. The early snapshot can already contain NTP-corrected time; it does not guarantee a measurement before synchronisation.
 
 Run a fresh check without writing a file:
 
@@ -23,7 +35,7 @@ Records include boot ID, UTC/local observation time, uptime, estimated boot time
 NTP synchronisation and the start times, states and restart counts of analysis,
 recording and Caddy. Monotonic start times are seconds after boot and remain
 meaningful across clock corrections. An active analysis service does not establish
-that the model is ready or that a recording was processed. The two-minute snapshot
+that the model is ready or that a recording was processed. The early snapshot
 is a fixed observation point, not a measurement of inference readiness.
 
 `observed_at_local` is current system time with its timezone offset;
@@ -47,6 +59,8 @@ For an existing installation, after updating source code, install the timer with
 ```bash
 bash /home/pi/BirdNET-Pi/scripts/install_startup_logging.sh
 ```
+
+Overview shows the latest three saved boot snapshots (date, local time and kernel RTC presence) in both operating modes. The boot logger updates `/var/lib/birdnet-boot-history/recent.json` atomically after each snapshot. This readable summary contains only those fields; full diagnostic logs retain their restricted permissions. RTC presence is distinct from a successful clock read.
 
 ## Microphone at recording startup
 

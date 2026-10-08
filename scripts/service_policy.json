@@ -1,0 +1,11 @@
+[
+  {"key":"RECORDING","label":"Microphone recording","units":["birdnet_recording.service"],"modes":["normal","archive"],"fixed":true,"default":1},
+  {"key":"ANALYSIS","label":"BirdNET analysis","units":["birdnet_analysis.service"],"modes":["normal"],"fixed":true,"default":1},
+  {"key":"ARCHIVE_ANALYSIS","label":"Manual file analysis","units":["birdnet-archive-analysis.service"],"modes":["archive"],"fixed":true,"manual":true,"default":1},
+  {"key":"LIVE_AUDIO","label":"Live audio stream","units":["icecast2.service","livestream.service"],"modes":["normal"],"default":1},
+  {"key":"STATISTICS","label":"Statistics","units":["birdnet_stats.service"],"modes":["normal"],"default":1},
+  {"key":"CHARTS","label":"Daily charts","units":["chart_viewer.service"],"modes":["normal"],"default":1},
+  {"key":"SPECTROGRAMS","label":"Spectrogram viewer","units":["spectrogram_viewer.service"],"modes":["normal"],"default":1},
+  {"key":"LOG","label":"BirdNET log viewer","units":["birdnet_log.service"],"modes":["normal"],"default":1},
+  {"key":"TERMINAL","label":"Web terminal","units":["web_terminal.service"],"modes":["normal"],"default":1}
+]

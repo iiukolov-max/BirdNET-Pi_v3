@@ -4,6 +4,16 @@ source /etc/birdnet/birdnet.conf
 set -x
 my_dir=$HOME/BirdNET-Pi/scripts
 
+if [ -f /usr/local/libexec/birdnet_minimal_services.py ]; then
+  sudo /usr/bin/python3 /usr/local/libexec/birdnet_minimal_services.py || exit 1
+fi
+if [ "${OPERATION_MODE:-normal}" = archive ]; then
+  sudo systemctl stop birdnet-archive-analysis.service
+  sudo systemctl stop birdnet_analysis.service
+  sudo systemctl restart birdnet_recording.service
+  exit $?
+fi
+
 
 sudo systemctl stop birdnet_recording.service
 

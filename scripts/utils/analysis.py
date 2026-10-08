@@ -7,6 +7,7 @@ import soundfile as sf
 
 from .classes import Detection, ParseFileName
 from .helpers import get_settings, get_language
+from .language_cache import language_names
 from .models import get_model
 
 log = logging.getLogger(__name__)
@@ -80,13 +81,16 @@ def readAudioData(path, overlap, sample_rate, chunk_duration):
     return chunks
 
 
-def analyzeAudioData(chunks, overlap, lat, lon, week):
+def analyzeAudioData(chunks, overlap, lat, lon, week, file_date=None):
     detections = []
     model = load_global_model()
 
     start = time.time()
     log.info('ANALYZING AUDIO...')
 
+    # Geomodel V3 uses four weeks per month, unlike the legacy ISO week.
+    if getattr(model, '_geomodel_v3', False) and file_date is not None:
+        week = (file_date.month - 1) * 4 + min((file_date.day - 1) // 7 + 1, 4)
     model.set_meta_data(lat, lon, week)
     predicted_species_list = model.get_species_list()
     # Human filtering only inspects this prefix; reporting only uses the top 10.
@@ -170,7 +174,7 @@ def run_analysis(file):
 
     conf = get_settings()
     model = load_global_model()
-    names = get_language(conf['DATABASE_LANG'])
+    names = language_names(conf['DATABASE_LANG'])
 
     # Read audio data & handle errors
     try:
@@ -181,7 +185,7 @@ def run_analysis(file):
 
     # Process audio data and get detections
     raw_detections, predicted_species_list = analyzeAudioData(audio_data, conf.getfloat('OVERLAP'), conf.getfloat('LATITUDE'),
-                                                              conf.getfloat('LONGITUDE'), file.week)
+                                                              conf.getfloat('LONGITUDE'), file.week, file.file_date)
     confident_detections = []
     for time_slot, entries in raw_detections.items():
         sci_name, confidence = entries[0]

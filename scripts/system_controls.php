@@ -53,7 +53,7 @@ function update() {
     <button type="submit" name="submit" value="sudo shutdown now" onclick="return confirm('Are you sure you want to shutdown?')">Shutdown</button>
   </div>
   <div>
-    <button type="submit" name="submit" value="sudo clear_all_data.sh" onclick="return confirm('Clear ALL Data? Note that this cannot be undone and will take up to 90 seconds.')">Clear ALL data</button>
+    <button type="submit" name="submit" value="sudo clear_all_data.sh" onclick="return confirm('Delete all recordings, detection audio, spectrograms and charts, and reset BirdDB.txt? Detection database and settings are kept. Analysis will stop. This cannot be undone and may take up to 90 seconds.')">Clear ALL data</button>
   </div>
 </form>
 <div id="container">

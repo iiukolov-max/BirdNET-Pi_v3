@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Performs the recording from the specified RTSP stream or soundcard
 source /etc/birdnet/birdnet.conf
+if [ "${OPERATION_MODE:-normal}" = archive ]; then
+  exec /usr/bin/python3 "$(dirname "$(readlink -f "$0")")/archive_recording.py"
+fi
 
 loop_ffmpeg(){
   while true;do

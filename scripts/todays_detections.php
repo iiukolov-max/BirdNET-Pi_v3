@@ -552,7 +552,7 @@ window.addEventListener("load", function(){
 }
 </style>
 
-<script src="static/custom-audio-player.js"></script>
+<script src="static/custom-audio-player.js?v=lazy-spectrogram-1"></script>
 <script src="static/generateMiniGraph.js"></script>
 <script>
 // Listen for the scroll event on the window object

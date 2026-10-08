@@ -10,6 +10,11 @@ $config = get_config();
 set_timezone();
 
 ensure_authenticated();
+require_once __DIR__.'/settings_async.php';
+require_once __DIR__.'/recording_ui.php';
+require_once __DIR__.'/service_policy.php';
+if ($_SERVER['REQUEST_METHOD']==='POST') $_GET=array_merge($_GET,$_POST);
+$recording_ui=recording_strings($config['DATABASE_LANG'] ?? 'en');
 
 if (file_exists($home."/BirdNET-Pi/apprise.txt")) {
   $apprise_config = file_get_contents($home."/BirdNET-Pi/apprise.txt");
@@ -36,7 +41,7 @@ function syslog_shell_exec($cmd, $sudo_user = null) {
 
 if(isset($_GET['threshold'])) {
   if ($config['MODEL'] == 'BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned') {
-    die('The species-list tester is available for V2.4. V3 uses name-mapped V2.4 filtering.');
+    die('The species-list tester is available for V2.4. V3 uses the selected geographic filter.');
   }
   $threshold = $_GET['threshold'];
   if (!is_numeric($threshold) || $threshold < 0 || $threshold > 1) {
@@ -73,10 +78,31 @@ if(isset($_GET["latitude"])){
   $flickr_filter_email = $_GET["flickr_filter_email"];
   $language = $_GET["language"];
   $info_site = $_GET["info_site"];
-  $color_scheme = $_GET["color_scheme"];
+  $color_scheme = $_GET['color_scheme'] ?? $config['COLOR_SCHEME'];
   $timezone = $_GET["timezone"];
   $model = $_GET["model"];
+  $mode_fields = array('OPERATION_MODE' => $_GET['operation_mode'] ?? 'normal',
+    'ARCHIVE_MAX_USED_PERCENT' => $_GET['archive_max_used_percent'] ?? '85');
+  if (!in_array($mode_fields['OPERATION_MODE'], array('normal','archive'), true)) die('Invalid recording mode');
+  foreach (array_slice($mode_fields,1) as $value) if (!ctype_digit((string)$value)) die('Invalid archive setting');
+  if (isset($_GET['service_permissions_present'])) {
+    foreach (birdnet_service_catalog() as $row) {
+      if (!empty($row['fixed'])) continue;
+      $mode_fields['SERVICE_ALLOW_'.$row['key']] = isset($_GET['service_allow_'.strtolower($row['key'])]) ? '1' : '0';
+    }
+  }
   $sf_thresh = $_GET["sf_thresh"];
+  $geo_model = $_GET['geo_model'] ?? ($config['GEO_MODEL'] ??
+    (file_exists('/etc/birdnet/geomodel-v3.enabled') ? 'v3.0.4' : 'legacy'));
+  if (!in_array($geo_model, array('off', 'legacy', 'v3.0.4'), true)) {
+    die('Invalid geographic filter');
+  }
+  if ($model == 'BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned') {
+    $sf_thresh = $_GET['geo_sf_thresh'] ?? $sf_thresh;
+  }
+  if (!is_numeric($sf_thresh) || $sf_thresh < 0.0005 || $sf_thresh > 0.99) {
+    die('Invalid geographic threshold');
+  }
   if(isset($_GET['data_model_version'])) {
     $data_model_version = 2;
   } else {
@@ -106,7 +132,7 @@ if(isset($_GET["latitude"])){
     $apprise_weekly_report = 0;
   }
 
-  if(isset($timezone) && in_array($timezone, DateTimeZone::listIdentifiers())) {
+  if(isset($timezone) && in_array($timezone, DateTimeZone::listIdentifiers()) && $timezone!==trim(shell_exec('timedatectl show --value --property=Timezone'))) {
     # dpkg-reconfigure tzdata is a pain to run non-interactively, so we do it in two steps instead
     # tzlocal.get_localzone() will fail if the Debian specific /etc/timezone is not in sync
     shell_exec("sudo timedatectl set-timezone ".$timezone);
@@ -115,7 +141,7 @@ if(isset($_GET["latitude"])){
     }
     $_SESSION['my_timezone'] = $timezone;
     date_default_timezone_set($timezone);
-    echo "<script>setTimeout(
+    if (!isset($_POST['async'])) echo "<script>setTimeout(
     function() {
       const xhttp = new XMLHttpRequest();
     xhttp.open(\"GET\", \"./config.php?restart_php=true\", true);
@@ -142,6 +168,10 @@ if(isset($_GET["latitude"])){
   }
 
   $contents = file_get_contents("/etc/birdnet/birdnet.conf");
+  foreach ($mode_fields as $key => $value) {
+    if (preg_match('/^' . $key . '=/m', $contents)) $contents = preg_replace('/^' . $key . '=.*$/m', $key . '=' . $value, $contents);
+    else $contents = rtrim($contents) . "\n" . $key . '=' . $value . "\n";
+  }
   $contents = preg_replace("/SITE_NAME=.*/", "SITE_NAME=\"$site_name\"", $contents);
   $contents = preg_replace("/LATITUDE=.*/", "LATITUDE=$latitude", $contents);
   $contents = preg_replace("/LONGITUDE=.*/", "LONGITUDE=$longitude", $contents);
@@ -160,46 +190,21 @@ if(isset($_GET["latitude"])){
   $contents = preg_replace("/COLOR_SCHEME=.*/", "COLOR_SCHEME=$color_scheme", $contents);  
   $contents = preg_replace("/FLICKR_FILTER_EMAIL=.*/", "FLICKR_FILTER_EMAIL=$flickr_filter_email", $contents);
   $contents = preg_replace("/APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES=.*/", "APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES=$minimum_time_limit", $contents);
-  $contents = preg_replace("/MODEL=.*/", "MODEL=$model", $contents);
+  $contents = preg_replace("/^MODEL=.*$/m", "MODEL=$model", $contents);
+  if (preg_match('/^GEO_MODEL=/m', $contents)) {
+    $contents = preg_replace('/^GEO_MODEL=.*$/m', 'GEO_MODEL=' . $geo_model, $contents);
+  } else {
+    $contents = rtrim($contents) . "\nGEO_MODEL=" . $geo_model . "\n";
+  }
   $contents = preg_replace("/SF_THRESH=.*/", "SF_THRESH=$sf_thresh", $contents);
   $contents = preg_replace("/DATA_MODEL_VERSION=.*/", "DATA_MODEL_VERSION=$data_model_version", $contents);
   $contents = preg_replace("/APPRISE_ONLY_NOTIFY_SPECIES_NAMES=.*/", "APPRISE_ONLY_NOTIFY_SPECIES_NAMES=\"$only_notify_species_names\"", $contents);
   $contents = preg_replace("/APPRISE_ONLY_NOTIFY_SPECIES_NAMES_2=.*/", "APPRISE_ONLY_NOTIFY_SPECIES_NAMES_2=\"$only_notify_species_names_2\"", $contents);
 
-  if($site_name != $config["SITE_NAME"] || $color_scheme != $config["COLOR_SCHEME"]) {
-    echo "<script>setTimeout(
-    function() {
-      window.parent.document.location.reload();
-    }, 1000);</script>";
-
-    shell_exec("sudo systemctl restart chart_viewer.service");
-    // the sleep allows for the service to restart and image to be generated
-    sleep(5);
+  session_write_close();
+  try {$settings_job=enqueue_settings($contents);} catch (Throwable $error) {
+    http_response_code(500);die(htmlspecialchars($error->getMessage(),ENT_QUOTES));
   }
-
-  // Apply the full settings file and wait for model readiness. Only the analysis
-  // service is restarted; disabled optional services stay disabled.
-  set_time_limit(480);
-  $switch_command = "sudo -n /usr/bin/python3 " . escapeshellarg($home . "/BirdNET-Pi/scripts/model_switch.py");
-  $pipes = array();
-  $process = proc_open($switch_command, array(0 => array("pipe", "r"),
-    1 => array("pipe", "w"), 2 => array("pipe", "w")), $pipes);
-  if (!is_resource($process)) {
-    die("Cannot start model switch. Previous settings retained.");
-  }
-  fwrite($pipes[0], $contents);
-  fclose($pipes[0]);
-  $switch_output = stream_get_contents($pipes[1]);
-  $switch_error = stream_get_contents($pipes[2]);
-  fclose($pipes[1]);
-  fclose($pipes[2]);
-  $switch_status = proc_close($process);
-  if ($switch_status !== 0) {
-    die('<p role="alert">' . htmlspecialchars($switch_error, ENT_QUOTES) .
-      '</p><p><a href="config.php">Return to Settings</a></p>');
-  }
-  clearstatcache();
-  $config = get_config(true);
 
   if(isset($apprise_input)){
     $appriseconfig = fopen($home."/BirdNET-Pi/apprise.txt", "w");
@@ -210,8 +215,7 @@ if(isset($_GET["latitude"])){
     $apprisebody = fopen($home."/BirdNET-Pi/body.txt", "w");
     fwrite($apprisebody, $apprise_notification_body);
   }
-  syslog(LOG_INFO, trim($switch_output));
-  echo '<p role="status">' . htmlspecialchars(trim($switch_output), ENT_QUOTES) . '</p>';
+  settings_response($settings_job);
 }
 
 if(isset($_GET['sendtest']) && $_GET['sendtest'] == "true") {
@@ -247,12 +251,13 @@ $config = get_config($force_reload=true);
   </head>
 <div class="settings">
       <div class="brbanner"><h1>Basic Settings</h1></div><br>
-    <form id="basicform" action=""  method="GET">
+    <form id="basicform" action="" method="GET" data-i18n="<?php echo recording_text(json_encode($recording_ui)); ?>">
 
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('modelsel').addEventListener('change', function() {
+    document.getElementById('geoV3').style.display = this.value === 'BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned' ? 'block' : 'none';
     if(this.value == "BirdNET_GLOBAL_6K_V2.4_Model_FP16"){
       document.getElementById("soft").style.display="unset";
     } else {
@@ -281,6 +286,17 @@ function sendTestNotification(e) {
 </script>
       <table class="settingstable"><tr><td>
       <h2>Model</h2>
+      <fieldset><legend><?php echo recording_text($recording_ui['mode']); ?></legend>
+      <select id="operation_mode" name="operation_mode">
+      <option value="normal" <?php if (($config['OPERATION_MODE'] ?? 'normal')==='normal') echo 'selected'; ?>><?php echo recording_text($recording_ui['normal']); ?></option>
+      <option value="archive" <?php if (($config['OPERATION_MODE'] ?? 'normal')==='archive') echo 'selected'; ?>><?php echo recording_text($recording_ui['economy']); ?></option>
+      </select>
+      <p><?php echo recording_text($recording_ui['description']); ?></p>
+      <label for="archive_max_used_percent"><?php echo recording_text($recording_ui['cleanup']); ?></label>
+      <input id="archive_max_used_percent" name="archive_max_used_percent" type="number" min="50" max="95" value="<?php echo (int)($config['ARCHIVE_MAX_USED_PERCENT'] ?? 85); ?>">
+      <p><?php echo recording_text($recording_ui['cleanup_help']); ?></p>
+      </fieldset>
+
 
       <label for="model">Select a Model: </label>
       <select id="modelsel" name="model" class="testbtn">
@@ -299,9 +315,23 @@ function sendTestNotification(e) {
       <p>Switching restores the selected model's own detection settings. Wait for
       confirmation before changing the model again. If startup fails, the previous
       model is restored automatically.</p>
-      <p>V3 Preview: no human-voice filter; sensitivity is fixed at 1.0. The V2.4
-      range filter is matched by species name; species absent from that filter
-      remain unrestricted. Both older models remain available for rollback.</p>
+      <div id="geoV3" <?php if ($config['MODEL'] !== 'BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned') echo 'style="display:none"'; ?>>
+      <label for="geo_model">Geographic filter for V3:</label>
+      <select name="geo_model" id="geo_model">
+      <?php
+      $geo_current = $config['GEO_MODEL'] ?? (file_exists('/etc/birdnet/geomodel-v3.enabled') ? 'v3.0.4' : 'legacy');
+      foreach (array('off' => 'Off', 'legacy' => 'BirdNET V2.4 range model',
+        'v3.0.4' => 'BirdNET Geomodel V3.0.4 — Global 14K, FP32 (14,082 labels)') as $value => $label) {
+        echo '<option value="' . $value . '"' . ($geo_current === $value ? ' selected' : '') . '>' . $label . '</option>';
+      }
+      ?>
+      </select><br>
+      <label for="geo_sf_thresh">Geographic occurrence threshold:</label>
+      <input id="geo_sf_thresh" name="geo_sf_thresh" type="number" min="0.0005" max="0.99" step="any" value="<?php echo htmlspecialchars($config['SF_THRESH'], ENT_QUOTES); ?>">
+      <p>Uses the latitude and longitude above and the recording date. A higher
+      threshold excludes more species and can exclude rare visitors. Save settings
+      to apply the filter; analysis restarts and recording continues.</p>
+      </div>
       <br>
       <span <?php if($config['MODEL'] != "BirdNET_GLOBAL_6K_V2.4_Model_FP16") { ?>style="display: none"<?php } ?> id="soft">
       <input type="checkbox" name="data_model_version" <?php if($config['DATA_MODEL_VERSION'] == 2) { echo "checked"; };?> >
@@ -407,9 +437,15 @@ function runProcess() {
 </script>
 
       <dl>
+      <dt>BirdNET+ V3.0 Preview (preview3.1)</dt>
+      <br>
+      <dd id="ddnewline">No human-voice filter; sensitivity is fixed at 1.0.
+      The geographic filter is matched by species name; unmatched species remain
+      unrestricted. Both older acoustic models remain available for rollback.</dd>
+      <br>
       <dt>BirdNET_GLOBAL_6K_V2.4_Model_FP16 (2023)</dt>
       <br>
-      <dd id="ddnewline">This is the BirdNET-Analyzer model, the most advanced BirdNET model to date. Currently it  supports over 6,000 species worldwide, giving quite good species coverage for people in most of the world.</dd>
+      <dd id="ddnewline">This is the BirdNET-Analyzer model, released in 2023. Currently it  supports over 6,000 species worldwide, giving quite good species coverage for people in most of the world.</dd>
       <br>
       <dt>BirdNET_6K_GLOBAL_MODEL (2020)</dt>
       <br>
@@ -417,6 +453,11 @@ function runProcess() {
       <br>
       <dt>[ In-depth technical write-up on the models <a target="_blank" href="https://github.com/mcguirepr89/BirdNET-Pi/wiki/BirdNET-Pi:-some-theory-on-classification-&-some-practical-hints">here</a> ]</dt>
       </dl>
+      </td></tr></table><br>
+
+      <table class="settingstable"><tr><td>
+      <h2>Services</h2>
+      <?php birdnet_service_settings($config); ?>
       </td></tr></table><br>
 
       <table class="settingstable"><tr><td>
@@ -642,6 +683,7 @@ https://discordapp.com/api/webhooks/{WebhookID}/{WebhookToken}
           echo "<option value='{$color_scheme}' $isSelected>$color_scheme</option>";
         }
       ?>
+      </select>
       </td></tr></table><br>
         
       <script>
@@ -710,7 +752,7 @@ https://discordapp.com/api/webhooks/{WebhookID}/{WebhookToken}
 if(isset($_GET['status'])){
   echo '<script>alert("Settings successfully updated");</script>';
 }
-echo "Update Settings";
+echo recording_text($recording_ui['update']);
 ?>
       </button></div>
       </form>
@@ -719,3 +761,5 @@ echo "Update Settings";
         <button type="submit" name="view" value="Advanced">Advanced Settings</button>
       </div></form>
 </div>
+
+<script defer src="static/settings-async.js"></script>

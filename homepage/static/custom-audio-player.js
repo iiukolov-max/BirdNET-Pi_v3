@@ -217,8 +217,21 @@ function initCustomAudioPlayers() {
     let indicator = null;
     if (imageSrc) {
       const img = wrapper.appendChild(document.createElement("img"));
+      img.loading = "lazy";
+      img.decoding = "async";
+      let triedOnDemand = false;
+      img.onerror = () => {
+        const imageUrl = new URL(imageSrc, window.location.href);
+        const pathname = decodeURIComponent(imageUrl.pathname);
+        if (!triedOnDemand && imageUrl.origin === window.location.origin &&
+            /^\/By_Date\/.*\.(flac|wav|mp3|ogg|opus)\.png$/i.test(pathname)) {
+          triedOnDemand = true;
+          img.src = "/scripts/lazy_spectrogram.php?audio=" + encodeURIComponent(pathname.slice(0, -4));
+        } else if (img.parentNode === wrapper) {
+          wrapper.removeChild(img);
+        }
+      };
       img.src = imageSrc;
-      img.onerror = () => wrapper.removeChild(img);
       applyStyles(img, {
         width: "100%",
         display: "block",

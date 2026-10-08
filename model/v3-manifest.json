@@ -2,6 +2,7 @@
   "schema_version": 1,
   "release": "BirdNET+ V3.0 Developer Preview 3.1",
   "source": "https://zenodo.org/records/20703646",
+  "geomodel_source": "https://github.com/birdnet-team/geomodel/releases/tag/v3.0.4",
   "artifacts": [
     {
       "name": "BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned.tflite",
@@ -14,6 +15,18 @@
       "url": "https://zenodo.org/records/20703646/files/BirdNET%2B_V3.0-preview3.1_Global_11K_Labels.csv?download=1",
       "bytes": 809172,
       "sha256": "8124b0ea2d187104c5e2cd95a0f937165647e20349c8fd34d4d5ef991821f8f0"
+    },
+    {
+      "name": "BirdNET+_Geomodel_V3.0.4_Global_14K_FP32.tflite",
+      "url": "https://github.com/birdnet-team/geomodel/releases/download/v3.0.4/BirdNET%2B_Geomodel_V3.0.4_Global_14K_FP32.tflite",
+      "bytes": 15317232,
+      "sha256": "bffdfb18454a250205bd85240a1054eb5f43be5c419653d3979ef292c2e4ab3f"
+    },
+    {
+      "name": "BirdNET+_Geomodel_V3.0.4_Global_14K_Labels.txt",
+      "url": "https://github.com/birdnet-team/geomodel/releases/download/v3.0.4/BirdNET%2B_Geomodel_V3.0.4_Global_14K_Labels.txt",
+      "bytes": 671823,
+      "sha256": "8250b457e45d43fc3e77b5cbd06a1d311baf585ab9c51ed8d42e011d98534835"
     }
   ]
 }

@@ -1,3 +1,5 @@
+> Preview 3 update: see [current release notes](../RELEASE_NOTES.md) and [README](../README.md). The measurements and Preview 2 installation history below retain their original context. Orange Pi support was contributed and hardware-tested by miketimofeev in [PR #1](https://github.com/iiukolov-max/BirdNET-Pi_v3/pull/1); our integration checks use Raspberry Pi.
+
 # Detailed project notes
 
 Archived from the project README when the landing page was shortened. For installation, use the [current README](../README.md); these notes retain measurements and validation context.
@@ -11,9 +13,13 @@ The current preview release is [v3-preview.2](https://github.com/iiukolov-max/Bi
 ## Preview 2: installation and startup fixes
 
 - Sudo password authentication is supported and refreshed during long installation steps.
+
 - The explicit Zero 2 W headless profile adds **1 GiB disk-backed fallback swap**, preserving existing zram. V3 ran out of memory on the tested Trixie device even with `cma=0` and zram alone.
+
 - Local microphone discovery prefers USB when selection is automatic, sets adjustable ALSA capture gain to 100% and unmutes capture while preserving playback volume. Hardware gain is separate from model sensitivity.
+
 - Automatic recording and streaming share a PulseAudio input. User audio runtime/D-Bus and startup ordering allow audio to start without an SSH login. Cold-boot discovery retries and sample-based streaming timestamps address pactl timeouts and non-monotonic DTS.
+
 - A single boot snapshot records system time, RTC presence/time and service startup information, with local log rotation. It runs approximately two minutes after boot, without periodic minute-by-minute records.
 
 The final reboot check on a Zero 2 W with Sound Blaster Play! 3 found all 11 services active without restarts, successful WAV inference, HTTP 200, capture 100%/unmuted and one boot snapshot. No OOM, D-Bus, pactl or DTS errors were found in that checked boot. These are startup results, not a long-term endurance test. No physical RTC was installed: absence was verified; reading an attached RTC remains untested.
@@ -46,10 +52,15 @@ V3 also introduces 32 kHz audio input, a revised architecture and training proce
 #### Integration and model selection
 
 - New installations use **BirdNET+ V3.0 Developer Preview 3.1, Global 11K, FP16 pruned** by default.
+
 - Previous BirdNET models remain available under **Tools → Settings**.
+
 - Model switching restores the model's saved parameters and checks readiness of the current analysis process. If startup fails, the previous model and configuration are restored.
+
 - V3 outputs are handled as probabilities without applying sigmoid again. Audio is prepared at 32 kHz.
+
 - Tested optimisations include SoundFile/soxr audio loading, stereo-to-mono processing, selection of only the required highest-scoring predictions and short-lived TFLite output views.
+
 - V3 inference thread count is configurable. Suitable settings depend on the device; fixed CPU frequencies used during development are not a universal default.
 
 V3 is a **developer preview**. Sensitivity is fixed at 1.0 and the previous human-voice filter is unavailable. The current integration uses the V2 geographic model with scientific-name matching; species absent from V2 are not restricted by that filter. This is not the V3 geographic model. Some added species may lack a localised name.
@@ -59,7 +70,9 @@ V3 is a **developer preview**. Sensitivity is fixed at 1.0 and the previous huma
 Detections can be marked as:
 
 - **TP / correct:** the identification is correct.
+
 - **FP / false positive:** the identification is incorrect.
+
 - **Unreviewed:** no manual assessment has been recorded.
 
 Review marks can be changed; clicking the selected mark again removes it. Changes require authentication. Existing detections and review marks are retained by the database migration.
@@ -69,24 +82,29 @@ Review marks can be changed; clicking the selected mark again removes it. Change
 Open **Tools → System Controls**:
 
 1. Select **Generate BirdDB_verified.txt**.
+
 2. Wait for the completion message and exported record count.
+
 3. Select **Download BirdDB_verified.txt**.
 
 The export contains **all detections**, including TP, FP and unreviewed records. It adds `ReviewStatus` and `ReviewedAt` to the existing detection fields. Despite the filename, it is not a TP-only subset.
 
 The existing `export_birddb_verified.py` is included **without changes**. The web integration provides authenticated launch/download, request verification, prevention of concurrent web exports and recovery of the previous output when export fails. Recording and analysis continue during export.
 
-The exporter uses fixed paths under `/home/pi/BirdNET-Pi`, which is why installation requires user `pi`.
+The exporter resolves the installation directory, including when invoked through its installed symlink. PR #1 removed the fixed `pi` account requirement.
 
 ## Installation and model downloads
 
 ### Quick installation — no Git knowledge required
 
-1. Use Raspberry Pi Imager to prepare **Raspberry Pi OS Lite 64-bit** on a new SD card. Create the user **`pi`**, enable SSH and configure your network. Use **Trixie** for the tested configuration; Bookworm requires a separate validation. The installer requires `/home/pi` and sudo access; it can prompt for your password. Python 3.11, 3.12 or 3.13 is required, with actual dependency installation tested on Trixie/Python 3.13.
+1. Use Raspberry Pi Imager to prepare **Raspberry Pi OS Lite 64-bit** on a new SD card. Create the user **`pi`**, enable SSH and configure your network. Use **Trixie** for the tested configuration; Bookworm requires a separate validation. The installer uses the current account and home directory and requires sudo access; it can prompt for your password. Python 3.11, 3.12 or 3.13 is required, with actual dependency installation tested on Trixie/Python 3.13.
+
 2. Log in to the Raspberry Pi as `pi`, then copy and run this single command:
 
 ```bash
+
 curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.2/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.2 bash birdnet-install.sh
+
 ```
 
 The command downloads the installer and runs it only if the download succeeds. The installer installs Git and other dependencies itself, retrieves this fork, downloads and verifies the V3 model, and configures the application. You do not need to clone a repository or run Git commands yourself.
@@ -94,7 +112,9 @@ The command downloads the installer and runs it only if the download succeeds. T
 **For a Raspberry Pi Zero 2 W used without a display or camera**, use this command instead. It explicitly enables the headless memory profile (`cma=0`, `gpu_mem=16`), backs up the boot files and adds 1 GiB disk-backed fallback swap:
 
 ```bash
+
 curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.2/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.2 bash birdnet-install.sh --zero2-headless
+
 ```
 
 3. When installation completes successfully, reboot with `sudo reboot`. Open `http://<your-Pi-hostname>.local` in a browser on the same network, or use the Pi's IP address. In **Tools → Settings**, check location and recording-device settings. Confirm that recording and V3 analysis are working; on Zero 2 W also verify the headless boot profile after reboot.
@@ -102,7 +122,9 @@ curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-previ
 These commands pin both installer and source to **Preview 2**. For the latest development version from `main` (which may change after this release), use:
 
 ```bash
+
 curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/main/newinstaller.sh -o birdnet-install.sh && bash birdnet-install.sh
+
 ```
 
 For an existing BirdNET-Pi installation, keep its recordings and database in place. The fresh installer deliberately refuses to overwrite it; see [updates and migration](UPDATES_AND_RECOVERY.md).
@@ -116,7 +138,9 @@ Previous models and the required geographic model are included in the repository
 V3 testing on the development Zero 2 W used a profile **without graphics or camera**, including:
 
 - `cma=0` in the kernel command line;
+
 - `gpu_mem=16`;
+
 - disabled graphics overlay and camera/display auto-detection.
 
 The `--zero2-headless` option applies this profile specifically to Zero 2 W, backs up the boot configuration and requires a reboot. The profile also provisions `/var/lib/birdnet/swapfile` (1 GiB, priority 10), retaining existing zram (normally priority 100), and orders analysis after swap activation. It checks free space and existing file ownership/format instead of overwriting an unknown file. Disk swap consumes storage and writes to the SD card.
@@ -124,26 +148,35 @@ The `--zero2-headless` option applies this profile specifically to Zero 2 W, bac
 After reboot, check actual CMA, swap, model readiness and recording:
 
 ```bash
+
 grep -E 'MemTotal|CmaTotal' /proc/meminfo
+
 sudo swapon --show
+
 sudo systemctl status birdnet_analysis birdnet_recording
+
 sudo python3 /home/pi/BirdNET-Pi/scripts/check_model_ready.py
+
 ```
 
 `CmaTotal` must be zero; editing boot files alone does not apply the setting. An active analysis process alone does not prove inference readiness. Other Raspberry Pi models do not receive these boot settings automatically.
 
 These settings are intended for deployments without graphics or camera. V3 remains demanding on a device with 512 MB RAM; the profile alone does not guarantee sustained real-time operation. The measurements below describe the tested Zero 2 W setup, not performance guarantees for other boards.
 
-CPU frequency limits and disabling Wi-Fi/Bluetooth are not applied automatically by this release.
+Economy mode now adjusts CPU capacity between recording and analysis; Normal restores the original CPU policy. Radio settings are not changed automatically.
 
 ## Boot time, RTC and microphone logs
 
 The startup timer writes one snapshot per boot to `/var/log/birdnet/startup.jsonl` and the system journal, approximately two minutes after boot. It includes UTC/local system time, timezone/NTP, boot ID, uptime, estimated boot time, service start times/states and restart counts. Logs rotate with fourteen retained archives.
 
 ```bash
+
 sudo tail -n 1 /var/log/birdnet/startup.jsonl | python3 -m json.tool
+
 sudo journalctl -u birdnet-startup-log.service -b
+
 sudo journalctl -u birdnet_recording.service -b
+
 ```
 
 RTC detection, its reported time and read errors are separate fields. Without a kernel-detected RTC the log reports absence and no RTC time; recording continues. Reading the clock does not change it. An attached board needs the correct driver/device-tree configuration; detection does not verify battery health. The fixed two-minute snapshot is not a measurement of model readiness. See [full diagnostics documentation](STARTUP_LOGGING.md).

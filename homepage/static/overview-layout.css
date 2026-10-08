@@ -1,0 +1,87 @@
+/* Keep the summary, latest detection and archive status in one aligned row. */
+.overview .overview-stats{display:block;max-width:1600px;margin:20px auto;padding:0 24px;box-sizing:border-box}
+.overview .right-column{display:block;min-width:0;width:100%;margin:0;padding:0}
+.overview .overview-row{display:grid;grid-template-columns:220px minmax(0,1fr) minmax(300px,340px);gap:20px;align-items:start}
+.overview .overview-row.has-archive{grid-template-columns:220px minmax(0,1fr) minmax(300px,340px)}
+.overview .left-column{display:block;grid-column:1;grid-row:1;min-width:0;padding:0;flex:none}
+.overview .left-column table{width:100%;table-layout:fixed;margin:0;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px #00000012}
+.overview .left-column th{width:65%;text-align:left;padding:15px 14px}
+.overview .left-column td{padding:12px 14px;text-align:right}
+.overview .left-column .summary-card{margin-bottom:16px;border:1px solid #8885;border-radius:10px;overflow:hidden}
+.overview .left-column .summary-card h3{font-size:1.05rem;text-align:left;margin:0;padding:12px}
+.overview .left-column .summary-card table{box-shadow:none;border-radius:0}
+.overview .left-column .summary-card th,.overview .left-column .summary-card td{width:auto;padding:10px 8px;overflow-wrap:anywhere}
+.overview .left-column .summary-card thead th{font-size:.78rem;font-weight:normal;text-align:right;white-space:nowrap}
+.overview .left-column .summary-card thead th:first-child{text-align:left;width:40%}
+.overview .left-column .summary-card tbody th{font-size:.85rem}
+.overview .left-column .summary-card tbody td{font-size:1.15rem;font-weight:700;font-variant-numeric:tabular-nums}
+.overview .left-column .summary-verified{border-top:1px solid #8885}
+.overview .overview-primary{grid-column:2;grid-row:1;min-width:0}
+.overview .center-column{display:none}
+.overview .overview-primary h2,.overview .overview-primary h3{margin-top:0;margin-bottom:14px}
+.overview .overview-primary .new_species,.overview .overview-primary .rare_species{margin-bottom:20px}
+.overview .overview-primary table{max-width:100%;width:100%;margin:0 auto;border-radius:10px;overflow:hidden}
+.overview .overview-row .archive-panel{float:none;grid-column:3;grid-row:1;width:100%;max-width:none;margin:0;padding:18px;border-radius:10px;box-shadow:0 2px 8px #00000012}
+.overview .overview-primary .chart{margin:0 0 20px}
+.overview .overview-primary .chart img,.overview #most_recent_detection .custom-audio-player img{width:100%;max-width:100%;height:auto}
+.overview #most_recent_detection{min-width:0}
+.overview #most_recent_detection h3{text-align:left;line-height:1.4}
+.overview #most_recent_detection table{box-sizing:border-box;table-layout:fixed}
+.overview #most_recent_detection td{min-width:0;overflow-wrap:anywhere}
+.overview #most_recent_detection .custom-audio-player{width:100%;min-width:0;max-width:100%}
+.overview .overview-recent{margin-top:24px;padding-top:12px;border-top:1px solid #00000026}
+.overview .overview-recent h3{text-align:left}
+.overview #detections_table{max-width:100%;overflow-x:auto}
+.overview #spectrogramimage{max-width:100%;height:auto}
+@media(max-width:1150px){
+  .overview .overview-row,.overview .overview-row.has-archive{grid-template-columns:200px minmax(0,1fr)}
+  .overview .overview-sidebar{grid-column:1 / -1;grid-row:2}
+  .overview .overview-row .archive-panel{grid-column:1 / -1;grid-row:2}
+}
+@media(max-width:700px){
+  .overview .overview-stats{padding:0 12px;margin-top:16px}
+  .overview .overview-row,.overview .overview-row.has-archive{grid-template-columns:minmax(0,1fr);gap:16px}
+  .overview .left-column{grid-column:1;grid-row:1}
+  .overview .overview-primary{grid-column:1;grid-row:2}
+  .overview .overview-sidebar{grid-column:1;grid-row:3}
+  .overview .overview-row .archive-panel{grid-column:auto;grid-row:auto}
+  .overview .left-column th,.overview .left-column td{padding:10px 14px}
+}
+
+.overview .overview-sidebar{grid-column:3;grid-row:1;min-width:0;display:flex;flex-direction:column;gap:20px}
+.overview .overview-sidebar .archive-panel{grid-column:auto;grid-row:auto}
+.overview .boot-history-panel{border:1px solid #8887;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px #00000012}
+.overview .boot-history-panel h3{margin:0;padding:16px 18px;font-size:1.05rem;text-align:left}
+.overview .boot-history-panel table{width:100%;table-layout:fixed;margin:0;border-collapse:collapse}
+.overview .boot-history-panel th{font-size:.8rem;font-weight:normal;text-align:left;padding:10px 12px}
+.overview .boot-history-panel td{font-size:.85rem;text-align:left;padding:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.overview .boot-history-panel tbody tr+tr{border-top:1px solid #8883}
+.overview .rtc-badge{display:inline-block;padding:3px 7px;border-radius:20px;font-size:.75rem;font-weight:600}
+.overview .rtc-present{background:#d7f3dc;color:#145c2b}
+.overview .rtc-absent{background:#ececec;color:#444}
+.overview .rtc-unknown{background:#fff0d4;color:#694b13}
+.overview .boot-history-panel .boot-history-empty{text-align:center;white-space:normal}
+@media(max-width:1150px){.overview .overview-sidebar{grid-column:1 / -1;grid-row:2}}
+@media(max-width:700px){.overview .overview-sidebar{grid-column:1;grid-row:3}}
+
+.overview .new-species-panel{margin-bottom:20px;border:1px solid #8885;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px #00000012}
+.overview .new-species-panel table{table-layout:fixed;border-collapse:collapse;border-radius:0}
+.overview .new-species-panel th{width:50%;padding:14px;text-align:left;font-size:.95rem}
+.overview .new-species-panel td{padding:10px 14px;vertical-align:top;text-align:left;overflow-wrap:anywhere}
+.overview .new-species-panel th+th,.overview .new-species-panel td+td{border-left:1px solid #8884}
+.overview .new-species-panel tbody tr+tr{border-top:1px solid #8883}
+.overview .new-species-name{display:block;font-weight:600;text-decoration:none;line-height:1.3}
+.overview .new-species-name:hover{text-decoration:underline}
+.overview .new-species-date{display:block;margin-top:4px;font-size:.78rem;opacity:.8;font-variant-numeric:tabular-nums}
+.overview .new-species-empty{font-size:.85rem;opacity:.8}
+@media(max-width:700px){.overview .new-species-panel th{font-size:.85rem}.overview .new-species-panel th,.overview .new-species-panel td{padding:10px}}
+
+.overview .new-species-confidence{display:block;margin-top:4px;font-size:.78rem;font-variant-numeric:tabular-nums}
+.overview .overview-recent caption{text-align:left;caption-side:top;padding:0 0 12px}
+.overview .overview-recent caption h3{margin:0;text-align:left}
+
+.overview .new-species-heading{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.overview .new-species-heading .new-species-name{min-width:0}
+.overview .new-species-heading .new-species-confidence{flex:none;margin:0;white-space:nowrap;font-weight:600}
+.overview .new-species-panel td{padding-top:8px;padding-bottom:8px}
+.overview .new-species-date{margin-top:3px}

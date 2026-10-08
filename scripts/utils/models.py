@@ -21,6 +21,15 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 GEO_CACHE_WORKER = os.path.join(os.path.dirname(__file__), '..', 'v3_geo_cache.py')
+GEO_V3_NAME = 'BirdNET+_Geomodel_V3.0.4_Global_14K'
+
+
+def get_geo_v3_labels():
+    with open(os.path.join(MODEL_PATH, GEO_V3_NAME + '_Labels.txt'), encoding='utf-8') as source:
+        rows = [line.rstrip('\n').split('\t') for line in source]
+    if len(rows) != 14082 or any(len(row) != 3 for row in rows):
+        raise ValueError('Geomodel V3 labels do not match the expected taxonomy')
+    return [row[1] for row in rows]
 
 
 def get_model(model=None):
@@ -115,17 +124,31 @@ class BirdNetV3Preview(Basemodel):
     def __init__(self):
         self.labels = get_model_labels(self.model_name)
         self._unique_labels = len(set(self.labels)) == len(self.labels)
-        self._geo_labels = get_model_labels('BirdNET_GLOBAL_6K_V2.4_Model_FP16')
+        self._geo_mode = get_settings().get('GEO_MODEL', 'v3.0.4' if
+                            os.path.isfile('/etc/birdnet/geomodel-v3.enabled') else 'legacy')
+        if self._geo_mode not in ('off', 'legacy', 'v3.0.4'):
+            raise ValueError('Unknown GEO_MODEL setting')
+        self._geomodel_v3 = self._geo_mode == 'v3.0.4'
+        self._geo_labels = (get_geo_v3_labels() if self._geomodel_v3 else
+                            get_model_labels('BirdNET_GLOBAL_6K_V2.4_Model_FP16'))
         self._unknown_species = set(self.labels) - set(self._geo_labels)
         conf = get_settings()
         self._geo_position = (conf.getfloat('LATITUDE'), conf.getfloat('LONGITUDE'))
         request = dict(lat=self._geo_position[0], lon=self._geo_position[1],
-                       version=conf.getint('DATA_MODEL_VERSION'))
+                       version=conf.getint('DATA_MODEL_VERSION'), geo_v3=self._geomodel_v3,
+                       threshold=conf.getfloat('SF_THRESH'))
         # The worker exits before acoustic allocation, releasing all range-model
         # tensors and allocator arenas. Settings changes restart the analyzer.
-        result = subprocess.run([sys.executable, GEO_CACHE_WORKER], input=json.dumps(request),
-                                text=True, capture_output=True, timeout=180, check=True)
-        self._geo_cache = json.loads(result.stdout)
+        if self._geo_mode == 'off':
+            self._geo_cache = {}
+        else:
+            result = subprocess.run([sys.executable, GEO_CACHE_WORKER], input=json.dumps(request),
+                                    text=True, capture_output=True, timeout=180, check=True)
+            self._geo_cache = json.loads(result.stdout)
+        log.info('Geofilter: %s; labels=%d; matched=%d; unmatched retained=%d; threshold=%s',
+                 GEO_V3_NAME + '_FP32' if self._geomodel_v3 else self._geo_mode, len(self._geo_labels),
+                 len(set(self.labels) & set(self._geo_labels)), len(self._unknown_species),
+                 conf.getfloat('SF_THRESH'))
         self._geo_week = None
         threads = int(os.environ.get('BIRDNET_V3_THREADS', '2'))
         if threads not in (1, 2, 4):
@@ -186,10 +209,14 @@ class BirdNetV3Preview(Basemodel):
         if (lat, lon) != self._geo_position:
             raise ValueError('V3 geographic position changed; restart the analyzer')
         self._geo_week = str(week)
+        if self._geo_mode == 'off':
+            return
         if self._geo_week not in self._geo_cache:
             raise ValueError('Invalid geographic week')
 
     def get_species_list(self):
+        if self._geo_mode == 'off':
+            return []
         return list({self._geo_labels[i] for i in self._geo_cache[self._geo_week]} | self._unknown_species)
 
 
