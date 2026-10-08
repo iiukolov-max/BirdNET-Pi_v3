@@ -2,8 +2,9 @@
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path("/home/pi/BirdNET-Pi/scripts/birds.db")
-OUT_PATH = Path("/home/pi/BirdNET-Pi/BirdDB_verified.txt")
+ROOT = Path(__file__).resolve().parent
+DB_PATH = ROOT / "scripts/birds.db"
+OUT_PATH = ROOT / "BirdDB_verified.txt"
 
 HEADER = [
     "Date", "Time", "Sci_Name", "Com_Name", "Confidence",

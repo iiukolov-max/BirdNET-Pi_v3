@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Web launcher for the unchanged export_birddb_verified.py."""
+"""Web launcher for export_birddb_verified.py."""
 import json
 import os
 from pathlib import Path

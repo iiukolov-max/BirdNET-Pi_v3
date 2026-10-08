@@ -7,10 +7,12 @@ case "${1:-}" in
   --zero2-headless) headless=1 ;;
   *) echo "Usage: $0 [--zero2-headless]" >&2; exit 2 ;;
 esac
-if [ "$EUID" = 0 ] || [ "$(id -un)" != pi ] || [ "$HOME" != /home/pi ]; then
-  echo 'Run as user pi with home /home/pi (required by the unchanged export script).' >&2
+install_user=$(id -un)
+if [ "$EUID" = 0 ] || [ "$HOME" != "/home/$install_user" ]; then
+  echo 'Run as a regular user with home /home/<username> (for example, orangepi). Do not run the installer with sudo.' >&2
   exit 1
 fi
+export USER="$install_user"
 target="$HOME/BirdNET-Pi"
 if [ -e "$target" ] || [ -L "$target" ] || [ -e /etc/birdnet/birdnet.conf ]; then
   echo 'Existing installation found. Nothing was changed. Use the migration procedure.' >&2

@@ -1,7 +1,8 @@
 """Calculate V2 geographic lists before the V3 acoustic model enters RAM."""
 import json
 import sys
-sys.path.insert(0, '/home/pi/BirdNET-Pi/scripts')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from utils.models import get_meta_model
 from utils.helpers import get_model_labels
 

@@ -2,6 +2,7 @@
 """Apply Settings as a transaction and restore the prior model on startup failure."""
 import json
 import os
+import pwd
 from pathlib import Path
 import re
 import subprocess
@@ -9,7 +10,7 @@ import sys
 import tempfile
 import time
 
-BASE = Path('/home/pi/BirdNET-Pi')
+BASE = Path(__file__).resolve().parent.parent
 CONFIG = BASE / 'birdnet.conf'
 STATE = BASE / '.model-profiles.json'
 READY = BASE / '.model-ready.json'
@@ -70,7 +71,8 @@ def await_ready(model, timeout=180):
 
 
 def labels():
-    subprocess.run(['sudo', '-u', 'pi', str(BASE / 'birdnet/bin/python3'), '-c',
+    owner = pwd.getpwuid(BASE.stat().st_uid).pw_name
+    subprocess.run(['sudo', '-u', owner, str(BASE / 'birdnet/bin/python3'), '-c',
                     'from utils.helpers import set_label_file; set_label_file()'],
                    cwd=BASE / 'scripts', check=True, timeout=30,
                    stdout=subprocess.DEVNULL)

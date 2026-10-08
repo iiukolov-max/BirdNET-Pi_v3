@@ -80,7 +80,7 @@ if __name__ == '__main__':
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--boot-directory', type=Path,
                         default=Path('/boot/firmware') if Path('/boot/firmware/config.txt').exists() else Path('/boot'))
-    parser.add_argument('--backup-directory', type=Path, default=Path('/home/pi/birdnet-backups'))
+    parser.add_argument('--backup-directory', type=Path, default=Path(__file__).resolve().parents[2] / 'birdnet-backups')
     args = parser.parse_args()
     if args.apply:
         print(json.dumps(apply(args.boot_directory, args.backup_directory)))
