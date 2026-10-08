@@ -34,21 +34,9 @@ After successful installation, run `sudo reboot`. Open `http://<your-Pi-hostname
 
 Installation requires internet access to download dependencies and checksum-verified model files; recognition runs locally afterwards. The fresh installer refuses an existing installation: use [updates and recovery](docs/UPDATES_AND_RECOVERY.md) and back up your data first.
 
-## Logs
+## Diagnostics
 
-View the latest system time, RTC presence/time and service startup snapshot:
-
-```bash
-sudo tail -n 1 /var/log/birdnet/startup.jsonl | python3 -m json.tool
-```
-
-Microphone detection and capture setup:
-
-```bash
-sudo journalctl -u birdnet_recording.service -b
-```
-
-Snapshots run once per boot, without minute-by-minute logging. A missing RTC does not prevent operation. See [time, RTC and microphone diagnostics](docs/STARTUP_LOGGING.md).
+See [boot history, RTC and microphone diagnostics](docs/STARTUP_LOGGING.md). Logging runs once per boot; a missing RTC does not prevent operation.
 
 ## Compatibility and limitations
 
