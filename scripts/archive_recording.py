@@ -77,7 +77,6 @@ def record(conf):
     batch=100
     cleanup(root,trigger,target,batch)
     if conf.get('RTSP_STREAM','').strip():raise ValueError('Archive mode currently supports the microphone input')
-    subprocess.run(['pulseaudio','--start'],check=False)
     device=subprocess.check_output(['python3','/usr/local/bin/prepare_microphone.py','--pulse','--device',conf.get('REC_CARD','default')],text=True).strip()
     channels=int(conf.get('CHANNELS','1'))
     started=dt.datetime.now()

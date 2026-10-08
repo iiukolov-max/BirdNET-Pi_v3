@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -22,11 +23,23 @@ def choose_profile(mode,analysis,recording):
     if recording in ('active','activating','reloading'):return 'recording'
     return 'idle'
 
+
+def inference_threads(environment):
+    """Report the archive service's configured threads, including overrides."""
+    for entry in shlex.split(environment):
+        if entry.startswith('BIRDNET_V3_THREADS='):
+            try:
+                value=int(entry.split('=',1)[1])
+            except ValueError:
+                return 0
+            return value if value in (1,2,3,4) else 0
+    return 2
+
 def thermal_limit(frequencies,current,temp,limited,cool_ticks):
     index=frequencies.index(current)
     if temp>=78 or limited:
         return frequencies[max(0,index-1)],0
-    if temp<=74:
+    if temp<=76:
         cool_ticks+=1
         if cool_ticks>=15:return frequencies[min(len(frequencies)-1,index+1)],0
         return current,cool_ticks
@@ -70,11 +83,12 @@ def main():
         while not stopping:
             match=re.search(r'^OPERATION_MODE=(.*)$',CONFIG.read_text(),re.M)
             mode=match.group(1).strip().strip('"') if match else 'normal'
-            units=command('systemctl','show','birdnet-archive-analysis.service','birdnet_recording.service','-p','Id','-p','ActiveState')
-            states={}
+            units=command('systemctl','show','birdnet-archive-analysis.service','birdnet_recording.service','-p','Id','-p','ActiveState','-p','Environment')
+            states={};environments={}
             for block in units.split('\n\n'):
                 fields=dict(line.split('=',1) for line in block.splitlines() if '=' in line)
                 states[fields['Id']]=fields['ActiveState']
+                environments[fields['Id']]=fields.get('Environment','')
             selected=choose_profile(mode,states['birdnet-archive-analysis.service'],states['birdnet_recording.service'])
             temperature=int(Path('/sys/class/thermal/thermal_zone0/temp').read_text())/1000
             limited=False
@@ -96,7 +110,7 @@ def main():
             if selected=='analysis':
                 cap,cool_ticks=thermal_limit(frequencies,cap,temperature,limited,cool_ticks)
                 bounds(frequencies[0],cap)
-            status={'profile':profile,'temperature_c':temperature,'max_khz':int(POLICY.joinpath('scaling_max_freq').read_text()),'current_khz':int(POLICY.joinpath('scaling_cur_freq').read_text()),'recording_cpus':'0' if profile=='recording' else saved['recording_cpus'],'inference_threads':2 if profile=='analysis' else 0,'firmware_limited':limited,'time':time.time()}
+            status={'profile':profile,'temperature_c':temperature,'max_khz':int(POLICY.joinpath('scaling_max_freq').read_text()),'current_khz':int(POLICY.joinpath('scaling_cur_freq').read_text()),'recording_cpus':'0' if profile=='recording' else saved['recording_cpus'],'inference_threads':inference_threads(environments['birdnet-archive-analysis.service']) if profile=='analysis' else 0,'firmware_limited':limited,'time':time.time()}
             temporary=STATUS.with_suffix('.tmp');temporary.write_text(json.dumps(status));temporary.replace(STATUS)
             time.sleep(2)
     finally:restore()

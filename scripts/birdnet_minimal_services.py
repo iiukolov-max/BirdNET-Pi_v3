@@ -10,6 +10,7 @@ from birdnet_service_policy import CATALOG, allowed, reconcile
 
 KEEP = {'birdnet_recording.service', 'birdnet_analysis.service', 'caddy.service',
         'birdnet-archive-analysis.service',
+        'birdnet-archive-charts.service',
         'birdnet-minimal-services.service', 'birdnet-cpu-policy.service', 'birdnet-startup-log.service',
         'birdnet-startup-log.timer'}
 KNOWN = {'birdnet_log.service', 'birdnet_stats.service', 'chart_viewer.service',
@@ -55,6 +56,9 @@ def restore_services():
 
 def main():
     assert os.geteuid() == 0, 'Run as root'
+    if '--boot' in sys.argv[1:]:
+        from archive_charts import recover
+        recover()
     config=Path('/etc/birdnet/birdnet.conf').read_text()
     mode=dict(re.findall(r'^([A-Z_]+)=(.*)$',config,re.M)).get('OPERATION_MODE','normal')
     if mode not in ('normal','archive'):raise ValueError('Invalid OPERATION_MODE')

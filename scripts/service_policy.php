@@ -14,7 +14,7 @@ function birdnet_service_allowed($unit, $config) {
 function birdnet_service_settings($config) {
     echo '<fieldset id="service-permissions"><legend>Service launch permissions</legend>';
     echo '<input type="hidden" name="service_permissions_present" value="1">';
-    echo '<p>Unchecked services stay off after mode changes and reboot. The selected mode also limits which services can run.</p>';
+    echo '<p>Unchecked services stay off after mode changes and reboot. Economy temporarily enables Charts after completed manual analysis, then restores its previous setting. The selected mode also limits which services can run.</p>';
     echo '<table style="width:100%;border-collapse:collapse;text-align:left"><thead><tr><th scope="col">Service</th><th scope="col">Allow</th></tr></thead><tbody>';
     foreach (birdnet_service_catalog() as $row) {
         if (!empty($row['fixed'])) continue;

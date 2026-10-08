@@ -6,7 +6,7 @@ STAMP="%H:%M:%S"
 
 [ -z $RECORDING_LENGTH ] && RECORDING_LENGTH=15
 
-if ! pulseaudio --check;then pulseaudio --start;fi
+REC_CARD=$(python3 /usr/local/bin/prepare_microphone.py --pulse --device "${REC_CARD:-default}") || exit 1
 
 CUSTOM_WINDOW_START=(0 3 15 22)
 CUSTOM_WINDOW_END=(0 7 19 23)
@@ -19,7 +19,7 @@ while [ $now -ge ${CUSTOM_WINDOW_START[0]} ] && [ $now -le ${CUSTOM_WINDOW_END[0
   echo $now
   # If you prefer no directory structure under "Raw", comment out the
   # lines below and uncommend the commands at the bottom.
-  arecord -f S16_LE -c${CHANNELS} -r48000 -t wav -d $RECORDING_DURATION \
+  arecord -D "$REC_CARD" -f S16_LE -c${CHANNELS} -r48000 -t wav -d $RECORDING_DURATION \
     --use-strftime ${EXTRACTED}/Raw/%B-%Y/%d-%A/%F-birdnet-${STAMP}.wav
   
   # Uncomment the lines below if you'd prefer having no directory scructure
@@ -33,7 +33,7 @@ while [ $now -ge ${CUSTOM_WINDOW_START[1]} ] && [ $now -le ${CUSTOM_WINDOW_END[1
   echo $now
   # If you prefer no directory structure under "Raw", comment out the
   # lines below and uncommend the commands at the bottom.
-  arecord -f S16_LE -c${CHANNELS} -r48000 -t wav -d $RECORDING_DURATION \
+  arecord -D "$REC_CARD" -f S16_LE -c${CHANNELS} -r48000 -t wav -d $RECORDING_DURATION \
     --use-strftime ${EXTRACTED}/Raw/%B-%Y/%d-%A/%F-birdnet-${STAMP}.wav
   
   # Uncomment the lines below if you'd prefer having no directory scructure
@@ -47,7 +47,7 @@ while [ $now -ge ${CUSTOM_WINDOW_START[2]} ] && [ $now -le ${CUSTOM_WINDOW_END[2
   echo $now
   # If you prefer no directory structure under "Raw", comment out the
   # lines below and uncommend the commands at the bottom.
-  arecord -f S16_LE -c${CHANNELS} -r48000 -t wav -d $RECORDING_DURATION \
+  arecord -D "$REC_CARD" -f S16_LE -c${CHANNELS} -r48000 -t wav -d $RECORDING_DURATION \
     --use-strftime ${EXTRACTED}/Raw/%B-%Y/%d-%A/%F-birdnet-${STAMP}.wav
   
   # Uncomment the lines below if you'd prefer having no directory scructure
@@ -61,7 +61,7 @@ while [ $now -ge ${CUSTOM_WINDOW_START[3]} ] && [ $now -le ${CUSTOM_WINDOW_END[3
   echo $now
   # If you prefer no directory structure under "Raw", comment out the
   # lines below and uncommend the commands at the bottom.
-  arecord -f S16_LE -c${CHANNELS} -r48000 -t wav -d $RECORDING_DURATION \
+  arecord -D "$REC_CARD" -f S16_LE -c${CHANNELS} -r48000 -t wav -d $RECORDING_DURATION \
     --use-strftime ${EXTRACTED}/Raw/%B-%Y/%d-%A/%F-birdnet-${STAMP}.wav
   
   # Uncomment the lines below if you'd prefer having no directory scructure

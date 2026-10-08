@@ -2,10 +2,11 @@
 
 Local acoustic monitoring based on [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), with BirdNET+ V3 Preview, recording modes and manual detection review.
 
-**Current release:** [v3-preview.3](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases/tag/v3-preview.3) · [Release notes](RELEASE_NOTES.md) · [Published releases](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases)
+**Current release:** [v3-preview.4](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases/tag/v3-preview.4) · [Release notes](RELEASE_NOTES.md) · [Published releases](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases)
 
 ## Features
 
+- Economy refreshes Charts once after completed manual analysis, restoring its previous permission. SQLite WAL/FULL, verified backups and failed-file preservation improve recording reliability.
 - Full BirdNET+ V3 Preview recognition of species represented in its label list, including birds and other animals. Earlier acoustic models remain selectable.
 - **Normal:** microphone recording and automatic analysis. **Economy:** retain complete recordings and start archive analysis manually from Overview. Recording pauses during manual analysis and resumes when the run ends; rebooting in Economy starts recording without restarting analysis.
 - Separate service permissions in Settings constrain optional services across mode changes, direct service starts and reboots. Recording and analysis remain mandatory, subject to the selected mode.
@@ -24,7 +25,7 @@ Orange Pi support was contributed and hardware-tested by [miketimofeev](https://
 Install the latest published preview:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.3/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.3 bash birdnet-install.sh
+curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.4/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.4 bash birdnet-install.sh
 ```
 
 For **Raspberry Pi Zero 2 W without a display or camera**, add `--zero2-headless` to the installer command. This Raspberry Pi profile backs up boot settings, applies `cma=0` and `gpu_mem=16`, disables graphics/camera and adds 1 GiB disk swap while retaining zram. Do not select this profile for Orange Pi.
@@ -39,7 +40,7 @@ The fresh installer refuses an existing installation. See [updates and recovery]
 - A Zero 2 W archive run processed 60 FLAC recordings without failures; warm processing averaged about 18.1 seconds per 30-second file. This is a device-specific measurement. Two inference threads are retained; the full V3 model remains in use.
 - Orange Pi hardware testing is credited to the contributor. The new release's additional recording-mode and service-policy features have not been hardware-tested by us on Orange Pi.
 - V3 is a developer preview. Its human-voice filter is unavailable and sensitivity is fixed at 1.0. Geographic filtering matches species names; unmatched species remain unrestricted.
-- An uninterrupted clean installation of the final Preview 3 source, a complete existing-device upgrade, attached RTC operation and long-term endurance remain to be verified. Updater backups exclude the complete audio archive; full automatic update rollback is unavailable.
+- An uninterrupted clean installation of the final Preview 4 source, a complete existing-device upgrade, attached RTC operation and long-term endurance remain to be verified. Updater backups exclude the complete audio archive; full automatic update rollback is unavailable.
 
 ## Documentation and sources
 

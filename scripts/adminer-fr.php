@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__.'/common.php';
+ensure_authenticated();
 /** Adminer - Compact database management
 * @link https://www.adminer.org/
 * @author Jakub Vrana, https://www.vrana.cz/

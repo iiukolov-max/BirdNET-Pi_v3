@@ -21,6 +21,32 @@ def log(event, **fields):
     print(json.dumps({"event": event, **fields}, ensure_ascii=False), file=sys.stderr, flush=True)
 
 
+def needs_pulse(device):
+    return device.strip() in ('','default','auto','pulse') or device.strip().startswith('pulse:')
+
+
+def ensure_pulse():
+    code,_,_=run(['pulseaudio','--check'])
+    if code:
+        code,_,error=run(['pulseaudio','--start'])
+        if code:raise RuntimeError('PulseAudio could not start: '+error.strip())
+
+
+def release_idle_pulse_source(card):
+    """Leave a shared audio server running; suspend only an unused matching source."""
+    code,output,_=run(['pactl','--format=json','list','sources'])
+    if code:return
+    matching=[s for s in json.loads(output) if str(s.get('properties',{}).get('alsa.card'))==str(card['number'])]
+    code,output,error=run(['pactl','--format=json','list','source-outputs'])
+    if code:raise RuntimeError('Cannot check PulseAudio capture users: '+error.strip())
+    clients=json.loads(output)
+    for source in matching:
+        if any(str(c.get('source'))==str(source.get('index')) for c in clients):
+            raise RuntimeError('Direct ALSA device has active PulseAudio users; use pulse or shared dsnoop')
+        code,_,error=run(['pactl','suspend-source',source['name'],'1'])
+        if code:raise RuntimeError('Cannot release idle PulseAudio source: '+error.strip())
+
+
 def capture_devices(output):
     return [{"number": int(number), "id": identifier, "device": int(device), "description": description}
             for number, identifier, description, device in
@@ -78,7 +104,7 @@ def select_pulse_source(card):
     if source is None:
         log("microphone_pulse_source_missing", card=card["id"])
         return False
-    for args in (["pactl", "set-default-source", source], ["pactl", "set-source-mute", source, "0"]):
+    for args in (["pactl", "set-default-source", source], ["pactl", "suspend-source", source, "0"], ["pactl", "set-source-mute", source, "0"]):
         code, _, error = run(args)
         if code:
             log("microphone_pulse_error", error=error.strip())
@@ -92,12 +118,17 @@ def main():
     parser.add_argument("--device", default="default")
     parser.add_argument("--pulse", action="store_true", help="Use shared PulseAudio capture for auto-selected hardware")
     args = parser.parse_args()
-    code, listing, error = run(["arecord", "-l"])
-    devices = capture_devices(listing)
+    configured = args.device.strip()
+    if args.pulse and needs_pulse(configured):ensure_pulse()
+    devices=[]
+    for attempt in range(5):
+        code, listing, error = run(["arecord", "-l"])
+        devices = capture_devices(listing)
+        if devices:break
+        if attempt<4:time.sleep(1)
     if not devices:
         log("microphone_not_found", error=error.strip())
         return 1
-    configured = args.device.strip()
     if configured in ("", "default", "auto"):
         devices.sort(key=lambda item: ("usb" not in str(Path(
             "/sys/class/sound/card" + str(item["number"])).resolve()).lower(), item["number"], item["device"]))
@@ -120,6 +151,7 @@ def main():
             log("microphone_configured_device_missing", device=configured, available=devices)
             return 1
         pcm = configured
+        release_idle_pulse_source(selected)
     log("microphone_selected", pcm=pcm, hardware=selected, available=devices)
     maximise_capture(selected["id"])
     print(pcm, flush=True)

@@ -1,3 +1,26 @@
+# BirdNET-Pi V3 — Preview 4
+
+Released: 2026-10-09. Reliability, SQLite and Economy Charts.
+
+- Fix Overview after midnight: the five most recent detections span recording dates; retain the latest available chart until a new chart exists. Remove the separate date caption below the chart.
+- After completed manual Economy analysis, refresh Charts once, temporarily enable its checkbox and restore its original value afterwards. Restore interrupted temporary permissions on boot. Cancelled analysis does not trigger a refresh; microphone recording resumes before chart generation.
+- Publish chart PNGs atomically and refresh Overview when the chart changes, independently of new detections.
+- Use one SQLite transaction per Normal recording, retain originals after write errors, and use SQLite API snapshots for backup/restore. Enable WAL/FULL during installation and updates with a verified private backup.
+- Fix WAL/SHM access between the web account and analysis account: inherit the database's shared group and repair existing shared-file group permissions. Tested with caddy creating WAL and pi acquiring a write transaction.
+- Preserve invalid/corrupt audio in quarantine and retain other failed recordings without unlimited retries. Treat manual analysis cancellation as a normal stop rather than a failed service.
+- Harden selected SQL, shell arguments, configuration serialization and deletion paths; require authentication for File/Adminer routes and direct endpoints. Preserve Unicode settings and detection reviews during species reassignment.
+- Recheck disk usage during Normal cleanup, preserve protected audio/spectrogram pairs and avoid symlink traversal. Add conditional PulseAudio startup and audio-readiness handling.
+- Raspberry Pi integration and reboot checks are recorded separately; no TFLite inference, RAM or electrical-power improvement is claimed from these changes. Orange Pi hardware validation of this update is still pending.
+
+Adapted ideas from Nachtzuster/BirdNET-Pi PRs [#653](https://github.com/Nachtzuster/BirdNET-Pi/pull/653), [#607](https://github.com/Nachtzuster/BirdNET-Pi/pull/607), [#547](https://github.com/Nachtzuster/BirdNET-Pi/pull/547), [#625](https://github.com/Nachtzuster/BirdNET-Pi/pull/625), [#276](https://github.com/Nachtzuster/BirdNET-Pi/pull/276), [#631](https://github.com/Nachtzuster/BirdNET-Pi/pull/631), [#629](https://github.com/Nachtzuster/BirdNET-Pi/pull/629), [#630](https://github.com/Nachtzuster/BirdNET-Pi/pull/630), [#628](https://github.com/Nachtzuster/BirdNET-Pi/pull/628), and the remaining lazy-image fallback from mcguirepr89/BirdNET-Pi [#1134](https://github.com/mcguirepr89/BirdNET-Pi/pull/1134). Changes were adapted to this fork, not merged wholesale.
+
+## Frozen Economy analysis profile
+
+- Keep full V3 with two inference threads for Economy archive analysis; set the thread count explicitly in the installed archive service. Normal and fresh-install model/service selections are preserved.
+- Economy CPU recovery now permits a higher frequency after 30 seconds at or below 76°C, instead of requiring 74°C. The 78°C reduction threshold and original hardware frequency ceiling remain unchanged. This addresses remaining at a reduced clock while the device is warm.
+- CPU status reads the archive service thread override instead of reporting a fixed count.
+- Normalize recording-mode installer line endings to LF. See [the frozen profile and measurements](docs/ECONOMY_ANALYSIS_PROFILE.md).
+
 # BirdNET-Pi V3 — Preview 3
 
 Released: 2026-10-08. This preview combines the accepted Orange Pi contribution with recording, analysis, settings and Overview changes.

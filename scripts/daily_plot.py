@@ -2,6 +2,9 @@ import argparse
 import os
 import sqlite3
 import textwrap
+import tempfile
+from pathlib import Path
+from contextlib import closing
 from datetime import datetime
 from time import sleep
 
@@ -18,11 +21,10 @@ from utils.helpers import DB_PATH, FONT_DIR, get_settings, get_font
 
 def get_data(now=None):
     uri = f"file:{DB_PATH}?mode=ro"
-    conn = sqlite3.connect(uri, uri=True)
     if now is None:
         now = datetime.now()
-    df = pd.read_sql_query(f"SELECT * from detections WHERE Date = DATE('{now.strftime('%Y-%m-%d')}')",
-                           conn)
+    with closing(sqlite3.connect(uri, uri=True, timeout=5)) as conn:
+        df = pd.read_sql_query('SELECT * FROM detections WHERE Date = ?',conn,params=(now.strftime('%Y-%m-%d'),))
 
     # Convert Date and Time Fields to Panda's format
     df['Date'] = pd.to_datetime(df['Date'])
@@ -172,14 +174,20 @@ def create_plot(df_plt_today, now, is_top=None):
     plot.set(xlabel="Hour of Day")
     # Set combined plot layout and titles
     y = 1 - 8 / (height * 100)
-    plt.suptitle(f"{plot_type} {readings} Last Updated: {now.strftime('%Y-%m-%d %H:%M')}", y=y)
+    plt.suptitle(f"{plot_type} {readings} Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", y=y)
     f.tight_layout()
     top = 1 - 40 / (height * 100)
     f.subplots_adjust(left=0.125, right=0.9, top=top, wspace=0)
 
     # Save combined plot
-    save_name = os.path.expanduser(f"~/BirdSongs/Extracted/Charts/{name}-{now.strftime('%Y-%m-%d')}.png")
-    plt.savefig(save_name)
+    folder=Path(get_settings()['EXTRACTED'])/'Charts';folder.mkdir(parents=True,exist_ok=True)
+    save_name = folder/f"{name}-{now.strftime('%Y-%m-%d')}.png"
+    fd,temporary=tempfile.mkstemp(prefix='.chart-',suffix='.png',dir=folder);os.close(fd)
+    try:
+        plt.savefig(temporary)
+        os.chmod(temporary,0o644);os.replace(temporary,save_name)
+    finally:
+        if os.path.exists(temporary):os.unlink(temporary)
     plt.show()
     plt.close()
 
@@ -193,11 +201,16 @@ def load_fonts():
     rcParams['font.family'] = get_font()['font.family']
 
 
-def main(daemon, sleep_m):
+def main(daemon, sleep_m, latest=False):
     load_fonts()
     last_run = None
     while True:
         now = datetime.now()
+        if latest:
+            with closing(sqlite3.connect(f'file:{DB_PATH}?mode=ro',uri=True,timeout=5)) as db:
+                date=db.execute("SELECT MAX(Date) FROM detections WHERE Date<=date('now','localtime')").fetchone()[0]
+            if not date:print('empty dataset');return
+            now=datetime.strptime(date,'%Y-%m-%d').replace(hour=now.hour,minute=now.minute)
         # now = datetime.strptime('2023-12-13T23:59:59', "%Y-%m-%dT%H:%M:%S")
         # now = datetime.strptime('2024-01-02T23:59:59', "%Y-%m-%dT%H:%M:%S")
         # now = datetime.strptime('2024-02-26T23:59:59', "%Y-%m-%dT%H:%M:%S")
@@ -223,6 +236,8 @@ def main(daemon, sleep_m):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--daemon', action='store_true')
+    parser.add_argument('--latest', action='store_true', help='Refresh the latest recording date with detections once')
     parser.add_argument('--sleep', default=2, type=int, help='Time between runs (minutes)')
     args = parser.parse_args()
-    main(args.daemon, args.sleep)
+    if args.latest and args.daemon:parser.error('--latest is a one-shot operation')
+    main(args.daemon, args.sleep, args.latest)

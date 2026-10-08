@@ -38,7 +38,10 @@ class PHPConfigParser(ConfigParser):
         if raw:
             return value
         else:
-            return value.strip('"')
+            value=value.strip()
+            if len(value)>=2 and value.startswith('"') and value.endswith('"'):
+                return re.sub(r'\\([\\"$`])', lambda match:match.group(1), value[1:-1])
+            return value
 
 
 def _load_settings(settings_path='/etc/birdnet/birdnet.conf', force_reload=False):

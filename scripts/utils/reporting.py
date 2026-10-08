@@ -13,6 +13,7 @@ from time import sleep
 from .helpers import get_settings, get_font, DB_PATH
 from .classes import Detection, ParseFileName
 from .spectrograms import render_spectrogram
+from .database import retry_transaction
 
 log = logging.getLogger(__name__)
 
@@ -69,26 +70,24 @@ def extract_detection(file: ParseFileName, detection: Detection):
 
 
 def write_to_db(file: ParseFileName, detection: Detection):
-    conf = get_settings()
-    # Connect to SQLite Database
-    for attempt_number in range(3):
-        try:
-            con = sqlite3.connect(DB_PATH)
-            cur = con.cursor()
-            cur.execute("INSERT INTO detections VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        (detection.date, detection.time, detection.scientific_name, detection.common_name, detection.confidence,
-                         conf['LATITUDE'], conf['LONGITUDE'], conf['CONFIDENCE'], str(detection.week), conf['SENSITIVITY'],
-                         conf['OVERLAP'], os.path.basename(detection.file_name_extr)))
-            # (Date, Time, Sci_Name, Com_Name, str(score),
-            # Lat, Lon, Cutoff, Week, Sens,
-            # Overlap, File_Name))
+    return write_detections_to_db(file, [detection], mark_processed=False)
 
-            con.commit()
-            con.close()
-            break
-        except BaseException as e:
-            log.warning("Database busy: %s", e)
-            sleep(2)
+
+def write_detections_to_db(file: ParseFileName, detections, mark_processed=True):
+    conf = get_settings()
+    info=os.stat(file.file_name)
+    key=(os.path.abspath(file.file_name),info.st_size,info.st_mtime_ns)
+    rows=[(d.date,d.time,d.scientific_name,d.common_name,d.confidence,
+           conf['LATITUDE'],conf['LONGITUDE'],conf['CONFIDENCE'],str(d.week),conf['SENSITIVITY'],
+           conf['OVERLAP'],os.path.basename(d.file_name_extr)) for d in detections]
+    def operation(db):
+        if mark_processed:
+            db.execute('CREATE TABLE IF NOT EXISTS normal_processed (name TEXT,size INTEGER,mtime INTEGER,PRIMARY KEY(name,size,mtime))')
+            if db.execute('SELECT 1 FROM normal_processed WHERE name=? AND size=? AND mtime=?',key).fetchone():return False
+        db.executemany('INSERT INTO detections (Date,Time,Sci_Name,Com_Name,Confidence,Lat,Lon,Cutoff,Week,Sens,Overlap,File_Name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',rows)
+        if mark_processed:db.execute('INSERT INTO normal_processed VALUES (?,?,?)',key)
+        return True
+    return retry_transaction(DB_PATH,operation)
 
 
 def summary(file: ParseFileName, detection: Detection):

@@ -205,9 +205,11 @@ if(isset($_GET['view'])){
     include('scripts/species_tools.php');
   }
   if($_GET['view'] == "File"){
+    ensure_authenticated();
     echo "<iframe src='scripts/filemanager/filemanager.php'></iframe>";
   }
   if($_GET['view'] == "Adminer"){
+    ensure_authenticated();
     echo "<iframe src='scripts/adminer.php'></iframe>";
   }
   if($_GET['view'] == "Webterm"){

@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 from birdnet_service_policy import allowed
 
 MARKER = Path('/run/birdnet-archive-recording-pause.json')
@@ -43,7 +44,7 @@ def pause():
     current = run('show', UNIT, '-p', 'ActiveState', '--value',
                   check=True, text=True, capture_output=True).stdout.strip()
     active = current in ('active', 'activating', 'reloading')
-    write({'resume': active, 'invocation': os.environ.get('INVOCATION_ID', '')})
+    write({'resume': active, 'invocation': os.environ.get('INVOCATION_ID', ''), 'started': time.time()})
     if active:
         run('stop', UNIT, check=True)
         if run('is-active', '--quiet', UNIT).returncode == 0:
@@ -61,6 +62,12 @@ def restore():
         # Do not wait for a job that can be ordered after this stop hook.
         run('start', '--no-block', UNIT, check=True)
     MARKER.unlink()
+    if saved.get('resume') and mode() == 'archive' and system != 'stopping':
+        from archive_charts import read, request, ROOT
+        result = read(ROOT/'.archive-analysis.json')
+        if result.get('started',0) >= saved.get('started',float('inf')):
+            try:request(result)
+            except Exception as error:print(json.dumps({'event':'charts_schedule_failed','error':str(error)}),flush=True)
 
 
 def cancel():

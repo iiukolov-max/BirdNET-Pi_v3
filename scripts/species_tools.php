@@ -33,7 +33,7 @@ if (isset($_GET['diskcounts'])) {
 /* ---------- DB open (RO unless deleting) ---------- */
 $flags = isset($_GET['delete']) ? SQLITE3_OPEN_READWRITE : SQLITE3_OPEN_READONLY;
 $db   = new SQLite3(__DIR__ . '/birds.db', $flags);
-$db->busyTimeout(1000);
+$db->busyTimeout(5000);
 
 /* Paths / lists */
 $base_symlink   = $home . '/BirdSongs/Extracted/By_Date';
@@ -122,7 +122,9 @@ if (isset($_GET['delete'])) {
   $info = collect_species_targets($db, $species, $home, $base);
   $deleted = count($info['files']);
   foreach ($info['dirs'] as $dir) {
-    if (exec("sudo rm -r $dir 2>&1", $output)) {
+    try {$dir=birdnet_path_inside($base,$dir);} catch (Throwable $error) {http_response_code(400);die('Invalid species directory');}
+    exec(birdnet_command(['sudo','rm','-r','--',$dir]).' 2>&1',$output,$delete_status);
+    if ($delete_status!==0) {
       echo "Error - files deletion failed : " . implode(", ", $output) . "<br>";
 	  exit;
     }

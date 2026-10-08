@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__.'/common.php';
+ensure_authenticated();
 echo '<a href="'.$_SERVER['PHP_SELF'].'" target="_blank">Open in new page</a>';
 /** Adminer - Compact database management
 * @link https://www.adminer.org/

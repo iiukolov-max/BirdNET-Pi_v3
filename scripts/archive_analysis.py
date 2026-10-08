@@ -11,6 +11,8 @@ import time
 import shutil
 from archive_recording import PATTERN
 from utils.helpers import get_settings, BASE_PATH, DB_PATH
+from utils.file_failures import InvalidRecording, blocked, failures, preserve_failure
+from utils.database import connect as connect_database
 
 BASE=Path(BASE_PATH)
 STATE=BASE/'.archive-analysis.json'
@@ -37,7 +39,7 @@ def pending():
     done=completed();result=[]
     for p in files():
         try:
-            if key(p) not in done:result.append(p)
+            if key(p) not in done and not blocked(p):result.append(p)
         except FileNotFoundError:pass
     return result
 
@@ -70,6 +72,9 @@ def status():
         state['recording_paused']=False
     waiting=pending()
     state['pending']=len(waiting)
+    retained=failures()
+    state['retained_failures']=len(retained)
+    state['quarantined']=sum(bool(row.get('quarantined')) for row in retained.values())
     snapshot=set(state.pop('snapshot',[]))
     state['new_pending']=sum(p.name not in snapshot for p in waiting) if active and snapshot else 0
     count=state.get('processed',0);total=state.get('total',0)
@@ -108,9 +113,15 @@ def decode_archive(source, wav):
     except (RuntimeError, ValueError):
         # Preserve support for inputs that the installed libsndfile cannot read.
         source.seek(0)
-        subprocess.run(['ffmpeg','-v','error','-nostdin','-i','pipe:0',
-                        '-c:a','pcm_s16le','-y',str(wav)],
-                       stdin=source,check=True,timeout=120)
+        try:
+            subprocess.run(['ffmpeg','-v','error','-nostdin','-i','pipe:0',
+                            '-c:a','pcm_s16le','-y',str(wav)],
+                           stdin=source,check=True,timeout=120,capture_output=True)
+        except subprocess.CalledProcessError as error:
+            message=(error.stderr or b'').decode('utf-8',errors='replace')
+            if 'Invalid data found when processing input' in message or 'End of file' in message:
+                raise InvalidRecording('Archive cannot be decoded: '+message[-1000:]) from error
+            raise
 
 
 def worker():
@@ -128,9 +139,9 @@ def worker():
     from utils.analysis import load_global_model,run_analysis
     from utils.classes import ParseFileName
     from utils.reporting import extract_detection
-    load_global_model()
-    state['status']='running';publish(state)
     try:
+        load_global_model()
+        state['status']='running';publish(state)
         for path in queue:
             began=time.time();state.update(current=path.name,current_started=began);publish(state)
             try:
@@ -144,12 +155,15 @@ def worker():
                         parsed=ParseFileName(str(wav));detections=run_analysis(parsed)
                         for d in detections:d.file_name_extr=extract_detection(parsed,d)
                         conf=get_settings()
-                        with sqlite3.connect(DB_PATH,timeout=30) as db:
+                        db=connect_database(DB_PATH,timeout=30)
+                        try:
+                          with db:
                             db.execute('CREATE TABLE IF NOT EXISTS archive_processed (name TEXT,size INTEGER,mtime INTEGER,processed REAL,PRIMARY KEY(name,size,mtime))')
                             if not db.execute('SELECT 1 FROM archive_processed WHERE name=? AND size=? AND mtime=?',fingerprint).fetchone():
                                 for d in detections:
-                                    db.execute('INSERT INTO detections VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',(d.date,d.time,d.scientific_name,d.common_name,d.confidence,conf['LATITUDE'],conf['LONGITUDE'],conf['CONFIDENCE'],str(d.week),conf['SENSITIVITY'],conf['OVERLAP'],os.path.basename(d.file_name_extr)))
+                                    db.execute('INSERT INTO detections (Date,Time,Sci_Name,Com_Name,Confidence,Lat,Lon,Cutoff,Week,Sens,Overlap,File_Name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',(d.date,d.time,d.scientific_name,d.common_name,d.confidence,conf['LATITUDE'],conf['LONGITUDE'],conf['CONFIDENCE'],str(d.week),conf['SENSITIVITY'],conf['OVERLAP'],os.path.basename(d.file_name_extr)))
                                 db.execute('INSERT INTO archive_processed VALUES (?,?,?,?)',(*fingerprint,time.time()))
+                        finally:db.close()
                 try:
                     if key(path)==fingerprint:path.unlink()
                 except FileNotFoundError:pass
@@ -161,10 +175,14 @@ def worker():
             except FileNotFoundError:
                 state['missing']+=1
             except Exception as error:
+                preserve_failure(path,error,quarantine=isinstance(error,InvalidRecording))
                 state['failed']+=1;state['last_error']=str(error)
                 print(json.dumps({'file':path.name,'error':str(error)}),flush=True)
             publish(state)
         state['status']='done' if not state['failed'] else 'done_with_errors'
+    except InterruptedError as error:
+        state['status']='interrupted';state['last_error']=str(error)
+        print(json.dumps({'event':'archive_analysis_stopped','processed':state['processed']}),flush=True)
     except BaseException as error:
         state['status']='interrupted';state['last_error']=str(error);raise
     finally:

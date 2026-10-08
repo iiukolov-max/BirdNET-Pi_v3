@@ -9,6 +9,7 @@ from .classes import Detection, ParseFileName
 from .helpers import get_settings, get_language
 from .language_cache import language_names
 from .models import get_model
+from .file_failures import InvalidRecording
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +51,14 @@ def readAudioData(path, overlap, sample_rate, chunk_duration):
 
     # WAV is the recorder's native format. Avoid loading librosa/Numba/LLVM
     # into the long-lived analyzer just to decode and average its channels.
-    sig, rate = sf.read(path, dtype='float32', always_2d=True)
+    try:
+        sig, rate = sf.read(path, dtype='float32', always_2d=True)
+    except sf.LibsndfileError as error:
+        if getattr(error, 'code', None) in (1, 3):
+            raise InvalidRecording(f'Invalid audio {path}: {error}') from error
+        raise
+    if not len(sig):
+        raise InvalidRecording(f'Empty recording: {path}')
     if sig.shape[1] == 2:
         # Vectorized stereo sum avoids the generic per-row mean reduction.
         # Float32 addition and halving match the previous stereo mean.
@@ -177,11 +185,7 @@ def run_analysis(file):
     names = language_names(conf['DATABASE_LANG'])
 
     # Read audio data & handle errors
-    try:
-        audio_data = readAudioData(file.file_name, conf.getfloat('OVERLAP'), model.sample_rate, model.chunk_duration)
-    except (NameError, TypeError) as e:
-        log.error("Error with the following info: %s", e)
-        return []
+    audio_data = readAudioData(file.file_name, conf.getfloat('OVERLAP'), model.sample_rate, model.chunk_duration)
 
     # Process audio data and get detections
     raw_detections, predicted_species_list = analyzeAudioData(audio_data, conf.getfloat('OVERLAP'), conf.getfloat('LATITUDE'),

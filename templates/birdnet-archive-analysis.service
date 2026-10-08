@@ -8,6 +8,7 @@ WorkingDirectory=@BIRDNET_ROOT@
 Environment=OPENBLAS_NUM_THREADS=1
 Environment=OMP_NUM_THREADS=1
 Environment=MKL_NUM_THREADS=1
+Environment=BIRDNET_V3_THREADS=2
 ExecStartPre=+/usr/bin/python3 "@BIRDNET_ROOT@/scripts/archive_recording_pause.py" pause
 ExecStart="@BIRDNET_ROOT@/birdnet/bin/python3" "@BIRDNET_ROOT@/scripts/archive_analysis.py" worker
 ExecStopPost=+/usr/bin/python3 "@BIRDNET_ROOT@/scripts/archive_recording_pause.py" restore

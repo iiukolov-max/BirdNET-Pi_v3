@@ -5,6 +5,12 @@ spec=importlib.util.spec_from_file_location('cpu_policy',Path(__file__).resolve(
 policy=importlib.util.module_from_spec(spec);spec.loader.exec_module(policy)
 
 class CpuPolicyTest(unittest.TestCase):
+    def test_service_thread_override_is_reported(self):
+        self.assertEqual(policy.inference_threads('OPENBLAS_NUM_THREADS=1 BIRDNET_V3_THREADS=3'),3)
+        self.assertEqual(policy.inference_threads('"BIRDNET_V3_THREADS=4"'),4)
+        self.assertEqual(policy.inference_threads(''),2)
+        self.assertEqual(policy.inference_threads('BIRDNET_V3_THREADS=invalid'),0)
+        self.assertEqual(policy.inference_threads('BIRDNET_V3_THREADS=0'),0)
     def test_normal_is_not_limited_by_archive_policy(self):
         self.assertEqual(policy.choose_profile('normal','active','active'),'normal')
     def test_analysis_wins_during_start_transition(self):
@@ -22,7 +28,11 @@ class CpuPolicyTest(unittest.TestCase):
         self.assertEqual(cap,700)
         self.assertEqual(policy.thermal_limit([600,700,800],cap,74,False,ticks),(800,0))
     def test_temperature_hysteresis(self):
-        self.assertEqual(policy.thermal_limit([600,700,800],700,76,False,10),(700,0))
+        self.assertEqual(policy.thermal_limit([600,700,800],700,77,False,10),(700,0))
+    def test_safe_warm_temperature_recovers_instead_of_staying_at_minimum(self):
+        cap,ticks=600,0
+        for _ in range(15):cap,ticks=policy.thermal_limit([600,700,800],cap,75.5,False,ticks)
+        self.assertEqual((cap,ticks),(700,0))
     def test_hardware_bounds(self):
         self.assertEqual(policy.thermal_limit([600,700],600,85,True,0),(600,0))
         self.assertEqual(policy.thermal_limit([600,700],700,70,False,14),(700,0))

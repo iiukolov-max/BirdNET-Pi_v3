@@ -3,6 +3,7 @@ import os
 import re
 
 from tzlocal import get_localzone
+from .file_failures import InvalidRecording
 
 
 class Detection:
@@ -30,9 +31,14 @@ class ParseFileName:
     def __init__(self, file_name):
         self.file_name = file_name
         name = os.path.splitext(os.path.basename(file_name))[0]
-        date_created = re.search('^[0-9]+-[0-9]+-[0-9]+', name).group()
-        time_created = re.search('[0-9]+:[0-9]+:[0-9]+$', name).group()
-        self.file_date = datetime.datetime.strptime(f'{date_created}T{time_created}', "%Y-%m-%dT%H:%M:%S")
+        date_match = re.search(r'^\d{4}-\d{2}-\d{2}', name)
+        time_match = re.search(r'\d{2}:\d{2}:\d{2}$', name)
+        if date_match is None or time_match is None:
+            raise InvalidRecording(f'Invalid recording filename: {file_name}')
+        try:
+            self.file_date = datetime.datetime.strptime(f'{date_match.group()}T{time_match.group()}', "%Y-%m-%dT%H:%M:%S")
+        except ValueError as error:
+            raise InvalidRecording(f'Invalid recording timestamp: {file_name}') from error
         self.root = name
 
         ident_match = re.search("RTSP_[0-9]+-", file_name)

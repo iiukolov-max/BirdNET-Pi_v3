@@ -1,14 +1,7 @@
 #!/usr/bin/env bash
-# Restarts ALL services and removes ALL unprocessed audio
-
-
-services=(birdnet_recording.service
-custom_recording.service
-birdnet_analysis.service
-chart_viewer.service
-spectrogram_viewer.service)
-
-for i in  "${services[@]}";do
-  sudo systemctl stop  ${i}
+# Stop processing without deleting recordings or bypassing mode restrictions.
+set -euo pipefail
+source /etc/birdnet/birdnet.conf
+for unit in birdnet-archive-analysis.service birdnet_analysis.service birdnet_recording.service custom_recording.service chart_viewer.service spectrogram_viewer.service; do
+  sudo systemctl stop "$unit"
 done
-sudo rm -rf ${RECS_DIR}/$(date +%B-%Y/%d-%A)/*

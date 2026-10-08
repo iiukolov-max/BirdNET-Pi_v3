@@ -23,7 +23,7 @@ if(isset($kiosk) && $kiosk == true) {
 }
 
 $db = new SQLite3('./scripts/birds.db', SQLITE3_OPEN_READONLY);
-$db->busyTimeout(1000);
+$db->busyTimeout(5000);
 
 $summary = get_summary();
 $totalcount = $summary['totalcount'];
@@ -127,32 +127,29 @@ function relativeTime($ts)
 
 
 if(isset($_GET['ajax_detections']) && $_GET['ajax_detections'] == "true"  ) {
-  if(isset($_GET['searchterm'])) {
-    if(strtolower(explode(" ", $_GET['searchterm'])[0]) == "not") {
-      $not = "NOT ";
-      $operator = "AND";
-      $_GET['searchterm'] =  str_replace("not ", "", $_GET['searchterm']);
-      $_GET['searchterm'] =  str_replace("NOT ", "", $_GET['searchterm']);
-    } else {
-      $not = "";
-      $operator = "OR";
-    }
-    $searchquery = "AND (Com_name ".$not."LIKE '%".$_GET['searchterm']."%' ".$operator." Sci_name ".$not."LIKE '%".$_GET['searchterm']."%' ".$operator." Confidence ".$not."LIKE '%".$_GET['searchterm']."%' ".$operator." File_Name ".$not."LIKE '%".$_GET['searchterm']."%' ".$operator." Time ".$not."LIKE '%".$_GET['searchterm']."%')";
-  } else {
-    $searchquery = "";
-  }
-  if(isset($_GET['display_limit']) && is_numeric($_GET['display_limit'])){
-    $statement0 = $db->prepare('SELECT Date, Time, Com_Name, Sci_Name, Confidence, File_Name FROM detections WHERE Date == Date(\'now\', \'localtime\') '.$searchquery.' ORDER BY Time DESC LIMIT '.(intval($_GET['display_limit'])-40).',40');
+  $search_term_bound=null;
+  if (isset($_GET['searchterm'])) {
+    $term=$_GET['searchterm'];$negate=preg_match('/^not\s+/i',$term)===1;
+    if ($negate) $term=preg_replace('/^not\s+/i','',$term);
+    $not=$negate?'NOT ':'';$operator=$negate?'AND':'OR';
+    $searchquery="AND (Com_Name {$not}LIKE :t1 {$operator} Sci_Name {$not}LIKE :t2 {$operator} Confidence {$not}LIKE :t3 {$operator} File_Name {$not}LIKE :t4 {$operator} Time {$not}LIKE :t5)";
+    $search_term_bound='%'.$term.'%';
+  } else {$searchquery='';}
+  if (($_GET['scope'] ?? '') === 'recent') {
+    $statement0 = $db->prepare('SELECT Date, Time, Com_Name, Sci_Name, Confidence, File_Name FROM detections WHERE 1=1 '.$searchquery.' ORDER BY Date DESC, Time DESC, rowid DESC LIMIT '.max(1,min(1000,(int)($_GET['hard_limit'] ?? 5))));
+  } elseif(isset($_GET['display_limit']) && is_numeric($_GET['display_limit'])){
+    $statement0 = $db->prepare('SELECT Date, Time, Com_Name, Sci_Name, Confidence, File_Name FROM detections WHERE Date == Date(\'now\', \'localtime\') '.$searchquery.' ORDER BY Time DESC LIMIT '.max(0,(intval($_GET['display_limit'])-40)).',40');
   } else {
     // legacy mode
     if(isset($_GET['hard_limit']) && is_numeric($_GET['hard_limit'])) {
-      $statement0 = $db->prepare('SELECT Date, Time, Com_Name, Sci_Name, Confidence, File_Name FROM detections WHERE Date == Date(\'now\', \'localtime\') '.$searchquery.' ORDER BY Time DESC LIMIT '.$_GET['hard_limit']);
+      $statement0 = $db->prepare('SELECT Date, Time, Com_Name, Sci_Name, Confidence, File_Name FROM detections WHERE Date == Date(\'now\', \'localtime\') '.$searchquery.' ORDER BY Time DESC LIMIT '.max(1,min(1000,(int)$_GET['hard_limit'])));
     } else {
       $statement0 = $db->prepare('SELECT Date, Time, Com_Name, Sci_Name, Confidence, File_Name FROM detections WHERE Date == Date(\'now\', \'localtime\') '.$searchquery.' ORDER BY Time DESC');
     }
     
   }
   ensure_db_ok($statement0);
+  if ($search_term_bound!==null) for($i=1;$i<=5;$i++) $statement0->bindValue(':t'.$i,$search_term_bound,SQLITE3_TEXT);
   $result0 = $statement0->execute();
 
   ?> <table>
@@ -264,7 +261,7 @@ if(isset($_GET['ajax_detections']) && $_GET['ajax_detections'] == "true"  ) {
 
   <?php 
   if($iterations == 0) {
-    echo "<h3>No Detections For Today.</h3>";
+    echo (($_GET['scope'] ?? '') === 'recent') ? '<h3>No Detections.</h3>' : '<h3>No Detections For Today.</h3>';
   }
   
   // don't show the button if there's no more detections to be displayed, we're at the end of the list

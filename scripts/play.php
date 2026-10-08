@@ -25,20 +25,22 @@ if(isset($_GET['deletefile'])) {
   $statement1 = $db_writable->prepare('DELETE FROM detections WHERE File_Name = :file_name LIMIT 1');
   ensure_db_ok($statement1);
   $statement1->bindValue(':file_name', explode("/", $_GET['deletefile'])[2]);
-  $file_pointer = $home."/BirdSongs/Extracted/By_Date/".$_GET['deletefile'];
-  $delete_command = 'sudo rm -- ' . escapeshellarg($file_pointer);
-  if (is_file($file_pointer . '.png')) {
-    $delete_command .= ' && sudo rm -- ' . escapeshellarg($file_pointer . '.png');
-  }
-  exec($delete_command . ' 2>&1', $output, $delete_status);
-  if ($delete_status === 0) {
-    echo "OK";
-  } else {
-    echo "Error - file deletion failed : " . implode(", ", $output) . "<br>";
-  }
+  try {
+    $relative=birdnet_relative_recording($_GET['deletefile']);
+    $base=$home.'/BirdSongs/Extracted/By_Date';
+    $file_pointer=birdnet_path_inside($base,$base.'/'.$relative);
+    if (!is_file($file_pointer)) throw new InvalidArgumentException('Recording not found');
+    $statement1->bindValue(':file_name',basename($file_pointer),SQLITE3_TEXT);
+    $targets=[$file_pointer];
+    if (file_exists($file_pointer.'.png')) $targets[]=birdnet_path_inside($base,$file_pointer.'.png');
+    exec(birdnet_command(array_merge(['sudo','rm','--'],$targets)).' 2>&1',$output,$delete_status);
+    if ($delete_status!==0) throw new RuntimeException('File deletion failed');
+  } catch (Throwable $error) {http_response_code(400);die(htmlspecialchars($error->getMessage(),ENT_QUOTES));}
   $result1 = $statement1->execute();
   if ($result1 === false || $db_writable->changes() === 0) {
     echo "Error - database line deletion failed : " . $db_writable->lastErrorMsg();
+  } else {
+    echo "OK";
   }
   if ($result1) {
     $result1->finalize();
@@ -91,7 +93,8 @@ if(isset($_GET['changefile']) && isset($_GET['newname'])) {
   }
   $oldname = basename(urldecode($_GET['changefile']));
   $newname = urldecode($_GET['newname']);
-  if (!exec("sudo -u ".$user." ".$home."/BirdNET-Pi/scripts/birdnet_changeidentification.sh \"$oldname\" \"$newname\" log_errors 2>&1", $output)) {
+  exec(birdnet_command(['sudo','-u',$user,$home.'/BirdNET-Pi/scripts/birdnet_changeidentification.sh',$oldname,$newname,'log_errors']).' 2>&1',$output,$rename_status);
+  if ($rename_status === 0) {
     echo "OK";
   } else {
     echo "Error : " . implode(", ", $output) . "<br>";
@@ -177,13 +180,13 @@ if(isset($_GET['shiftfile'])) {
 
     if ($freqshift_tool == "ffmpeg") {
       $cmd = "sudo /usr/bin/nohup /usr/bin/ffmpeg -y -i ".escapeshellarg($pi.$filename)." -af \"rubberband=pitch=".$config['FREQSHIFT_LO']."/".$config['FREQSHIFT_HI']."\" ".escapeshellarg($shifted_path.$filename)."";
-      shell_exec("sudo mkdir -p ".$shifted_path.$dir." && ".$cmd);
+      shell_exec(birdnet_command(['sudo','mkdir','-p','--',$shifted_path.$dir]).' && '.$cmd);
 
     } else if ($freqshift_tool == "sox") {
       $soxopt = "-q";
       $soxpitch = $config['FREQSHIFT_PITCH'];
       $cmd = "sudo /usr/bin/nohup /usr/bin/sox ".escapeshellarg($pi.$filename)." ".escapeshellarg($shifted_path.$filename)." pitch ".$soxopt." ".$soxpitch;
-      shell_exec("sudo mkdir -p ".$shifted_path.$dir." && ".$cmd);
+      shell_exec(birdnet_command(['sudo','mkdir','-p','--',$shifted_path.$dir]).' && '.$cmd);
     }
   } else {
     $cmd = "sudo rm -f " . escapeshellarg($shifted_path.$filename);
@@ -593,7 +596,7 @@ if(isset($_GET['species'])){ ?>
   }
 
   $name = htmlspecialchars_decode($_GET['species'], ENT_QUOTES);
-  $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 40;
+  $limit = isset($_GET['limit']) ? max(1,min(1000,(int)$_GET['limit'])) : 40;
 
   $result2 = fetch_all_detections($name, $_GET['sort'], $_SESSION['date']);
   $results=$result2->fetchArray(SQLITE3_ASSOC);
@@ -654,7 +657,7 @@ if(isset($_GET['species'])){ ?>
     if($iter < 100){
       $imageelem = "<div class='custom-audio-player' data-audio-src=\"$filename\" data-image-src=\"$filename_png\"></div>";
     } else {
-      $imageelem = "<a href=\"$filename\"><img src=\"$filename_png\"></a>";
+      $imageelem = "<a href=\"$filename\"><img loading=\"lazy\" src=\"$filename_png\"></a>";
     }
 
     if(!in_array($filename_formatted, $disk_check_exclude_arr)) {
@@ -732,8 +735,9 @@ if ($iter_additional) {
 
 if(isset($_GET['filename'])){
   $name = $_GET['filename'];
-  $statement2 = $db->prepare("SELECT * FROM detections where File_name == \"$name\" ORDER BY Date DESC, Time DESC");
+    $statement2 = $db->prepare('SELECT * FROM detections WHERE File_Name = :filename ORDER BY Date DESC, Time DESC');
   ensure_db_ok($statement2);
+    $statement2->bindValue(':filename',$name,SQLITE3_TEXT);
   $result2 = $statement2->execute();
   $results = $result2->fetchArray(SQLITE3_ASSOC);
   $sciname = $results['Sci_Name'];

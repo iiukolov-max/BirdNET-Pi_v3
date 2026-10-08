@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__.'/web_safety.php';
 
 define('__ROOT__', dirname(dirname(__FILE__)));
 
@@ -27,7 +28,7 @@ function get_config($force_reload = false) {
   }
   if (!isset($_SESSION['my_config']) || $force_reload) {
     $source = preg_replace("~^#+.*$~m", "", file_get_contents('/etc/birdnet/birdnet.conf'));
-    $my_config = parse_ini_string($source);
+    $my_config = birdnet_config_parse($source);
     if ($my_config) {
       $_SESSION['my_config'] = $my_config;
     } else {
@@ -121,16 +122,17 @@ function get_label($record, $sort_by, $date=null) {
 }
 
 function get_db() {
-  if (!isset($_db)) {
-    $_db = new SQLite3('./scripts/birds.db', SQLITE3_OPEN_READONLY);
-    $_db->busyTimeout(1000);
+  static $_db = null;
+  if ($_db === null) {
+    $_db = new SQLite3(__DIR__.'/birds.db', SQLITE3_OPEN_READONLY);
+    $_db->busyTimeout(5000);
   }
   return $_db;
 }
 
 function fetch_species_array($sort_by, $date=null) {
   $db = get_db();
-  $where = (isset($date)) ? "WHERE Date == \"$date\"" : "";
+  $where = (isset($date)) ? "WHERE Date = :date" : "";
   if ($sort_by === "occurrences") {
     $statement = $db->prepare("SELECT Date, Time, File_Name, Com_Name, Sci_Name, COUNT(*) as Count, MAX(Confidence) as MaxConfidence FROM detections $where GROUP BY Sci_Name ORDER BY COUNT(*) DESC");
   } elseif ($sort_by === "confidence") {
@@ -141,30 +143,34 @@ function fetch_species_array($sort_by, $date=null) {
     $statement = $db->prepare("SELECT Date, Time, File_Name, Com_Name, Sci_Name, COUNT(*) as Count, MAX(Confidence) as MaxConfidence FROM detections $where GROUP BY Sci_Name ORDER BY Com_Name ASC");
   }
   ensure_db_ok($statement);
+  if (isset($date)) $statement->bindValue(':date',$date,SQLITE3_TEXT);
   $result = $statement->execute();
   return $result;
 }
 
 function fetch_best_detection($com_name) {
   $db = get_db();
-  $statement = $db->prepare("SELECT Com_Name, Sci_Name, COUNT(*), MAX(Confidence), File_Name, Date, Time from detections WHERE Com_Name = \"$com_name\"");
+  $statement = $db->prepare("SELECT Com_Name, Sci_Name, COUNT(*), MAX(Confidence), File_Name, Date, Time from detections WHERE Com_Name = :com_name");
   ensure_db_ok($statement);
+  $statement->bindValue(':com_name',$com_name,SQLITE3_TEXT);
   $result = $statement->execute();
   return $result;
 }
 
 function fetch_all_detections($sci_name, $sort_by, $date=null) {
   $db = get_db();
-  $filter = (isset($date)) ? "AND Date == \"$date\"" : "";
+  $filter = (isset($date)) ? "AND Date = :date" : "";
   if ($sort_by === "occurrences") {
-    $statement = $db->prepare("SELECT * FROM detections WHERE Sci_Name == \"$sci_name\" $filter ORDER BY COUNT(*) DESC");
+    $statement = $db->prepare("SELECT * FROM detections WHERE Sci_Name = :sci_name $filter ORDER BY Date DESC, Time DESC");
   } elseif ($sort_by === "confidence") {
-    $statement = $db->prepare("SELECT * FROM detections WHERE Sci_Name == \"$sci_name\" $filter ORDER BY Confidence DESC");
+    $statement = $db->prepare("SELECT * FROM detections WHERE Sci_Name = :sci_name $filter ORDER BY Confidence DESC");
   } else {
     $order = (isset($date)) ? "Time DESC" : "Date DESC, Time DESC";
-    $statement = $db->prepare("SELECT * FROM detections where Sci_Name == \"$sci_name\" $filter ORDER BY $order");
+    $statement = $db->prepare("SELECT * FROM detections where Sci_Name = :sci_name $filter ORDER BY $order");
   }
   ensure_db_ok($statement);
+  $statement->bindValue(':sci_name',$sci_name,SQLITE3_TEXT);
+  if (isset($date)) $statement->bindValue(':date',$date,SQLITE3_TEXT);
   $result = $statement->execute();
   return $result;
 }
@@ -254,7 +260,7 @@ class ImageProvider {
     } catch (Exception $ex) {
       $this->create_tables();
     }
-    $this->db->busyTimeout(1000);
+    $this->db->busyTimeout(5000);
   }
 
   protected function create_tables() {

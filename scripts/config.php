@@ -66,8 +66,6 @@ if(isset($_GET["latitude"])){
   $latitude = $_GET["latitude"];
   $longitude = $_GET["longitude"];
   $site_name = $_GET["site_name"];
-  $site_name = str_replace('"', "", $site_name);
-  $site_name = str_replace('\'', "", $site_name);
   $birdweather_id = $_GET["birdweather_id"];
   $apprise_input = $_GET['apprise_input'];
   $apprise_notification_title = $_GET['apprise_notification_title'];
@@ -167,39 +165,23 @@ if(isset($_GET["latitude"])){
     }
   }
 
-  $contents = file_get_contents("/etc/birdnet/birdnet.conf");
-  foreach ($mode_fields as $key => $value) {
-    if (preg_match('/^' . $key . '=/m', $contents)) $contents = preg_replace('/^' . $key . '=.*$/m', $key . '=' . $value, $contents);
-    else $contents = rtrim($contents) . "\n" . $key . '=' . $value . "\n";
-  }
-  $contents = preg_replace("/SITE_NAME=.*/", "SITE_NAME=\"$site_name\"", $contents);
-  $contents = preg_replace("/LATITUDE=.*/", "LATITUDE=$latitude", $contents);
-  $contents = preg_replace("/LONGITUDE=.*/", "LONGITUDE=$longitude", $contents);
-  $contents = preg_replace("/BIRDWEATHER_ID=.*/", "BIRDWEATHER_ID=$birdweather_id", $contents);
-  $contents = preg_replace("/APPRISE_NOTIFICATION_TITLE=.*/", "APPRISE_NOTIFICATION_TITLE=\"$apprise_notification_title\"", $contents);
-  $contents = preg_replace("/APPRISE_NOTIFY_EACH_DETECTION=.*/", "APPRISE_NOTIFY_EACH_DETECTION=$apprise_notify_each_detection", $contents);
-  $contents = preg_replace("/APPRISE_NOTIFY_NEW_SPECIES=.*/", "APPRISE_NOTIFY_NEW_SPECIES=$apprise_notify_new_species", $contents);
-  $contents = preg_replace("/APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY=.*/", "APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY=$apprise_notify_new_species_each_day", $contents);
-  $contents = preg_replace("/APPRISE_WEEKLY_REPORT=.*/", "APPRISE_WEEKLY_REPORT=$apprise_weekly_report", $contents);
-  $contents = preg_replace("/IMAGE_PROVIDER=.*/", "IMAGE_PROVIDER=$image_provider", $contents);
-  $contents = preg_replace("/FLICKR_API_KEY=.*/", "FLICKR_API_KEY=$flickr_api_key", $contents);
-  if(strlen($language) == 2 || strlen($language) == 5){
-    $contents = preg_replace("/DATABASE_LANG=.*/", "DATABASE_LANG=$language", $contents);
-  }
-  $contents = preg_replace("/INFO_SITE=.*/", "INFO_SITE=$info_site", $contents);
-  $contents = preg_replace("/COLOR_SCHEME=.*/", "COLOR_SCHEME=$color_scheme", $contents);  
-  $contents = preg_replace("/FLICKR_FILTER_EMAIL=.*/", "FLICKR_FILTER_EMAIL=$flickr_filter_email", $contents);
-  $contents = preg_replace("/APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES=.*/", "APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES=$minimum_time_limit", $contents);
-  $contents = preg_replace("/^MODEL=.*$/m", "MODEL=$model", $contents);
-  if (preg_match('/^GEO_MODEL=/m', $contents)) {
-    $contents = preg_replace('/^GEO_MODEL=.*$/m', 'GEO_MODEL=' . $geo_model, $contents);
-  } else {
-    $contents = rtrim($contents) . "\nGEO_MODEL=" . $geo_model . "\n";
-  }
-  $contents = preg_replace("/SF_THRESH=.*/", "SF_THRESH=$sf_thresh", $contents);
-  $contents = preg_replace("/DATA_MODEL_VERSION=.*/", "DATA_MODEL_VERSION=$data_model_version", $contents);
-  $contents = preg_replace("/APPRISE_ONLY_NOTIFY_SPECIES_NAMES=.*/", "APPRISE_ONLY_NOTIFY_SPECIES_NAMES=\"$only_notify_species_names\"", $contents);
-  $contents = preg_replace("/APPRISE_ONLY_NOTIFY_SPECIES_NAMES_2=.*/", "APPRISE_ONLY_NOTIFY_SPECIES_NAMES_2=\"$only_notify_species_names_2\"", $contents);
+  try {
+    $latitude=birdnet_number($latitude,-90,90);$longitude=birdnet_number($longitude,-180,180);
+    $minimum_time_limit=birdnet_number($minimum_time_limit,0,86400);
+    if (!in_array($model,['BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned','BirdNET_GLOBAL_6K_V2.4_Model_FP16','BirdNET_6K_GLOBAL_MODEL'],true)) throw new InvalidArgumentException('Invalid model');
+    if (!preg_match('/^[a-z]{2}(?:_[A-Z]{2})?$/D',$language)) throw new InvalidArgumentException('Invalid language');
+    foreach ([$image_provider,$info_site,$color_scheme] as $value) if (!preg_match('/^[a-zA-Z0-9_.-]*$/D',$value)) throw new InvalidArgumentException('Invalid selection');
+    $updates=array_merge($mode_fields,[
+      'SITE_NAME'=>$site_name,'LATITUDE'=>$latitude,'LONGITUDE'=>$longitude,'BIRDWEATHER_ID'=>$birdweather_id,
+      'APPRISE_NOTIFICATION_TITLE'=>$apprise_notification_title,'APPRISE_NOTIFY_EACH_DETECTION'=>$apprise_notify_each_detection,
+      'APPRISE_NOTIFY_NEW_SPECIES'=>$apprise_notify_new_species,'APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY'=>$apprise_notify_new_species_each_day,
+      'APPRISE_WEEKLY_REPORT'=>$apprise_weekly_report,'IMAGE_PROVIDER'=>$image_provider,'FLICKR_API_KEY'=>$flickr_api_key,
+      'DATABASE_LANG'=>$language,'INFO_SITE'=>$info_site,'COLOR_SCHEME'=>$color_scheme,'FLICKR_FILTER_EMAIL'=>$flickr_filter_email,
+      'APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES'=>$minimum_time_limit,'MODEL'=>$model,'GEO_MODEL'=>$geo_model,
+      'SF_THRESH'=>$sf_thresh,'DATA_MODEL_VERSION'=>$data_model_version,
+      'APPRISE_ONLY_NOTIFY_SPECIES_NAMES'=>$only_notify_species_names,'APPRISE_ONLY_NOTIFY_SPECIES_NAMES_2'=>$only_notify_species_names_2]);
+    $contents=birdnet_config_update(file_get_contents('/etc/birdnet/birdnet.conf'),$updates);
+  } catch (InvalidArgumentException $error) {http_response_code(400);die(htmlspecialchars($error->getMessage(),ENT_QUOTES));}
 
   session_write_close();
   try {$settings_job=enqueue_settings($contents);} catch (Throwable $error) {
@@ -233,7 +215,7 @@ if(isset($_GET['sendtest']) && $_GET['sendtest'] == "true") {
   chmod($t_body_path, 0644);
   fwrite($temp_body, $body);
 
-  $cmd = "sudo -u $user $home/BirdNET-Pi/birdnet/bin/python3 $home/BirdNET-Pi/scripts/send_test_notification.py --body $t_body_path --config $t_conf_path --title '" . escapeshellcmd($title) . "' 2>&1";
+  $cmd = birdnet_command(['sudo','-u',$user,$home.'/BirdNET-Pi/birdnet/bin/python3',$home.'/BirdNET-Pi/scripts/send_test_notification.py','--body',$t_body_path,'--config',$t_conf_path,'--title',$title]).' 2>&1';
   $ret = shell_exec($cmd);
   echo "<pre class=\"bash\">".$ret."</pre>";
   fclose($temp_conf);
@@ -337,7 +319,7 @@ function sendTestNotification(e) {
       <input type="checkbox" name="data_model_version" <?php if($config['DATA_MODEL_VERSION'] == 2) { echo "checked"; };?> >
       <label for="data_model_version">Species range model V2.4 - V2</label>  [ <a target="_blank" href="https://github.com/kahst/BirdNET-Analyzer/discussions/234">Info here</a> ]<br>
       <label for="sf_thresh">Species Occurrence Frequency Threshold [0.0005, 0.99]: </label>
-      <input name="sf_thresh" type="number" style="width:5em;" max="0.99" min="0.0005" step="any" value="<?php print($config['SF_THRESH']);?>"/> <span onclick="document.getElementById('sfhelp').style.display='unset'" style="text-decoration:underline;cursor:pointer">[more info]</span><br>
+      <input name="sf_thresh" type="number" style="width:5em;" max="0.99" min="0.0005" step="any" value="<?php print(htmlspecialchars((string)$config['SF_THRESH'],ENT_QUOTES,'UTF-8'));?>"/> <span onclick="document.getElementById('sfhelp').style.display='unset'" style="text-decoration:underline;cursor:pointer">[more info]</span><br>
       <p id="sfhelp" style='display:none'>This value is used by the model to constrain the list of possible species that it will try to detect, given the minimum occurrence frequency. A 0.03 threshold means that for a species to be included in this list, it needs to, on average, be seen on at least 3% of historically submitted eBird checklists for your given lat/lon/current week of year. So, the lower the threshold, the rarer the species it will include.<br><img style='max-width:100%;padding-top:5px;padding-bottom:5px' alt="BirdNET-Pi new model detection flowchart" title="BirdNET-Pi new model detection flowchart" src="images/BirdNET-Pi_nm_flowchart.alpha.png">
         <br>If you'd like to tinker with this threshold value and see which species make it onto the list, <?php if($config['MODEL'] == "BirdNET_6K_GLOBAL_MODEL"){ ?>please click "Update Settings" at the very bottom of this page to install the appropriate label file, then come back here and you'll be able to use the Species List Tester.<?php } else { ?>you can use this tool: <button type="button" class="testbtn" id="openModal">Species List Tester</button><?php } ?></p>
       </span>
@@ -465,16 +447,16 @@ function runProcess() {
       <table class="settingstable plaintable">
         <tr>
           <td><label for="site_name">Site Name:</label></td>
-          <td><input name="site_name" type="text" value="<?php print($config['SITE_NAME']);?>"/></td>
+          <td><input name="site_name" type="text" value="<?php print(htmlspecialchars((string)$config['SITE_NAME'],ENT_QUOTES,'UTF-8'));?>"/></td>
           <td>(Optional)</td>
         </tr>
         <tr>
           <td><label for="latitude">Latitude:</label></td>
-          <td><input name="latitude" type="number" style="width:6em;" max="90" min="-90" step="0.0001" value="<?php print($config['LATITUDE']);?>" required/></td>
+          <td><input name="latitude" type="number" style="width:6em;" max="90" min="-90" step="0.0001" value="<?php print(htmlspecialchars((string)$config['LATITUDE'],ENT_QUOTES,'UTF-8'));?>" required/></td>
         </tr>
         <tr>
           <td><label for="longitude">Longitude: </label></td>
-          <td><input name="longitude" type="number" style="width:6em;" max="180" min="-180" step="0.0001" value="<?php print($config['LONGITUDE']);?>" required/></td>
+          <td><input name="longitude" type="number" style="width:6em;" max="180" min="-180" step="0.0001" value="<?php print(htmlspecialchars((string)$config['LONGITUDE'],ENT_QUOTES,'UTF-8'));?>" required/></td>
           <td></td>
         </tr>
       </table>
@@ -483,7 +465,7 @@ function runProcess() {
       <table class="settingstable"><tr><td>
       <h2>BirdWeather</h2>
       <label for="birdweather_id">BirdWeather Token: </label>
-      <input name="birdweather_id" type="text" value="<?php print($config['BIRDWEATHER_ID']);?>" /><br>
+      <input name="birdweather_id" type="text" value="<?php print(htmlspecialchars((string)$config['BIRDWEATHER_ID'],ENT_QUOTES,'UTF-8'));?>" /><br>
            <p><a href="https://app.birdweather.com" target="_blank">BirdWeather.com</a> is a weather map for bird sounds. 
         Stations around the world supply audio and video streams to BirdWeather where they are then analyzed by BirdNET 
         and compared to eBird Grid data. BirdWeather catalogues the bird audio and spectrogram visualizations so that you 
@@ -539,7 +521,7 @@ https://discordapp.com/api/webhooks/{WebhookID}/{WebhookToken}
       </dl>
       <p>Use the variables defined above to customize your notification title and body.</p>
       <label for="apprise_notification_title">Notification Title: </label>
-      <input name="apprise_notification_title" style="width: 100%" type="text" value="<?php print($config['APPRISE_NOTIFICATION_TITLE']);?>" /><br>
+      <input name="apprise_notification_title" style="width: 100%" type="text" value="<?php print(htmlspecialchars((string)$config['APPRISE_NOTIFICATION_TITLE'],ENT_QUOTES,'UTF-8'));?>" /><br>
       <label for="apprise_notification_body">Notification Body: </label>
       <textarea class="testbtn" name="apprise_notification_body" rows="5" type="text" ><?php print($apprise_notification_body);?></textarea>
       <input type="checkbox" name="apprise_notify_new_species" <?php if($config['APPRISE_NOTIFY_NEW_SPECIES'] == 1 && filesize($home."/BirdNET-Pi/apprise.txt") != 0) { echo "checked"; };?> >
@@ -575,9 +557,9 @@ https://discordapp.com/api/webhooks/{WebhookID}/{WebhookToken}
       <hr>
       <p>Set your Flickr API key to enable the display of bird images next to detections. <a target="_blank" href="https://www.flickr.com/services/api/misc.api_keys.html">Get your key here.</a></p>
       <label for="flickr_api_key">Flickr API Key: </label>
-      <input name="flickr_api_key" type="text" size="32" value="<?php print($config['FLICKR_API_KEY']);?>"/><br>
+      <input name="flickr_api_key" type="text" size="32" value="<?php print(htmlspecialchars((string)$config['FLICKR_API_KEY'],ENT_QUOTES,'UTF-8'));?>"/><br>
       <label for="flickr_filter_email">Only search photos from this Flickr user: </label>
-      <input name="flickr_filter_email" type="email" size="24" placeholder="myflickraccount@gmail.com" value="<?php print($config['FLICKR_FILTER_EMAIL']);?>"/><br>
+      <input name="flickr_filter_email" type="email" size="24" placeholder="myflickraccount@gmail.com" value="<?php print(htmlspecialchars((string)$config['FLICKR_FILTER_EMAIL'],ENT_QUOTES,'UTF-8'));?>"/><br>
       </td></tr></table><br>
       <table class="settingstable"><tr><td>
       <h2>Localization</h2>

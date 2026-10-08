@@ -1,6 +1,7 @@
 <?php
 //Default Configuration
-require_once '../../scripts/common.php';
+require_once __DIR__.'/../common.php';
+ensure_authenticated();
 $config = get_config();
 $color_scheme = $config['COLOR_SCHEME'];
 $CONFIG = "{\"lang\":\"en\",\"error_reporting\":false,\"show_hidden\":true,\"hide_Cols\":false,\"calc_folder\":false,\"theme\":\"$color_scheme\"}";

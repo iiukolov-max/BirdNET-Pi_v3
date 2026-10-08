@@ -15,8 +15,9 @@ from inotify.constants import IN_CLOSE_WRITE
 from utils.analysis import load_global_model, run_analysis
 from utils.helpers import get_settings, get_wav_files, ANALYZING_NOW
 from utils.classes import ParseFileName
-from utils.reporting import extract_detection, summary, write_to_file, write_to_db, apprise, bird_weather, heartbeat, \
+from utils.reporting import extract_detection, summary, write_to_file, write_detections_to_db, apprise, bird_weather, heartbeat, \
     update_json_file
+from utils.file_failures import InvalidRecording, blocked, preserve_failure
 
 shutdown = False
 ready_published = False
@@ -96,10 +97,12 @@ def main():
 
 def process_file(file_name, report_queue):
     global ready_published
+    if blocked(file_name):
+        log.warning('Retained failed recording; use analysis_failures.py to retry: %s', file_name)
+        return
     try:
         if os.path.getsize(file_name) == 0:
-            os.remove(file_name)
-            return
+            raise InvalidRecording('Empty completed recording')
         log.info('Analyzing %s', file_name)
         with open(ANALYZING_NOW, 'w') as analyzing:
             analyzing.write(file_name)
@@ -116,7 +119,12 @@ def process_file(file_name, report_queue):
             log.warning('reporting queue not yet empty')
         report_queue.join()
         report_queue.put((file, detections))
-    except BaseException as e:
+    except InvalidRecording as e:
+        log.error('Recording quarantined: %s', preserve_failure(file_name,e,quarantine=True))
+    except FileNotFoundError:
+        log.warning('Recording disappeared before analysis: %s',file_name)
+    except Exception as e:
+        preserve_failure(file_name,e)
         stderr = e.stderr.decode('utf-8') if isinstance(e, CalledProcessError) else ""
         log.exception(f'Unexpected error: {stderr}', exc_info=e)
 
@@ -134,13 +142,15 @@ def handle_reporting_queue(queue):
             for detection in detections:
                 detection.file_name_extr = extract_detection(file, detection)
                 log.info('%s;%s', summary(file, detection), os.path.basename(detection.file_name_extr))
-                write_to_file(file, detection)
-                write_to_db(file, detection)
+            committed = write_detections_to_db(file, detections)
+            if committed:
+                for detection in detections:write_to_file(file, detection)
             apprise(file, detections)
             bird_weather(file, detections)
             heartbeat()
             os.remove(file.file_name)
-        except BaseException as e:
+        except Exception as e:
+            preserve_failure(file.file_name,e)
             stderr = e.stderr.decode('utf-8') if isinstance(e, CalledProcessError) else ""
             log.exception(f'Unexpected error: {stderr}', exc_info=e)
 

@@ -56,14 +56,21 @@ backup_check() {
 
 backup() {
   log "Starting backup, this might take a while"
-  CMD='tar --create -f "$ARCHIVE"'
-  for obj in  "${optional[@]}";do
-    [ -f $obj ] && CMD="$CMD -C $(dirname "$obj") $(basename "$obj")"
+  local snapshot
+  snapshot=$(mktemp -d) || return 1
+  /usr/bin/python3 "$my_dir/sqlite_backup.py" "$my_dir/birds.db" "$snapshot/birds.db" || { rmdir "$snapshot"; return 1; }
+  local tar_args=(--create -f "$ARCHIVE" -C "$snapshot" birds.db)
+  for obj in "${optional[@]}"; do
+    [ -f "$obj" ] && tar_args+=(-C "$(dirname "$obj")" "$(basename "$obj")")
   done
-  for obj in  "${required[@]}";do
-    CMD="$CMD -C $(dirname "$obj") $(basename "$obj")"
+  for obj in "${required[@]}"; do
+    [ "$obj" = "$my_dir/birds.db" ] || tar_args+=(-C "$(dirname "$obj")" "$(basename "$obj")")
   done
-  eval "$CMD"
+  tar "${tar_args[@]}"
+  local result=$?
+  rm -- "$snapshot/birds.db"
+  rmdir "$snapshot"
+  [ "$result" = 0 ] || return "$result"
   log "Backup done"
 }
 
@@ -130,6 +137,10 @@ unpack() {
 restore() {
   log "Starting restore"
   for obj in  "${required[@]}";do
+    if [ "$obj" = "$my_dir/birds.db" ]; then
+      /usr/bin/python3 "$my_dir/sqlite_backup.py" "$UNPACK/birds.db" "$obj" --replace || return 1
+      continue
+    fi
     [ -d "$obj" ] && rm -rf "$obj"
     mv "${UNPACK}/$(basename "$obj")" "$(dirname "$obj")/"
   done
@@ -189,8 +200,10 @@ trap cleanup SIGINT SIGTERM SIGABRT
 log "Stopping services"
 "$my_dir/stop_core_services.sh"
 
-[ $ACTION == "backup" ] && backup
-[ $ACTION == "restore" ] && restore
+action_result=0
+if [ "$ACTION" = "backup" ]; then backup || action_result=$?; fi
+if [ "$ACTION" = "restore" ]; then restore || action_result=$?; fi
 
 log "Restarting services"
 "$my_dir/restart_services.sh" &>/dev/null
+exit "$action_result"

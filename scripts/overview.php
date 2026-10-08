@@ -10,10 +10,11 @@ $config = get_config();
 
 set_timezone();
 $myDate = date('Y-m-d');
-$chart = "Combo-$myDate.png";
+require_once __DIR__.'/overview_chart.php';
+$chart = overview_chart_file($config['EXTRACTED'].'/Charts', $myDate);
 
 $db = new SQLite3('./scripts/birds.db', SQLITE3_OPEN_READONLY);
-$db->busyTimeout(1000);
+$db->busyTimeout(5000);
 
 if(isset($_GET['custom_image'])){
   if(isset($config["CUSTOM_IMAGE"])) {
@@ -40,8 +41,6 @@ if(isset($_GET['blacklistimage'])) {
 }
 
 if(isset($_GET['fetch_chart_string']) && $_GET['fetch_chart_string'] == "true") {
-  $myDate = date('Y-m-d');
-  $chart = "Combo-$myDate.png";
   echo $chart;
   die();
 }
@@ -55,7 +54,9 @@ if (isset($_GET['ajax_overview'])) {
   $rows = [];
   while ($row = $latest->fetchArray(SQLITE3_ASSOC)) $rows[] = $row;
   header('Content-Type: application/json; charset=utf-8');
-  echo json_encode(['summary'=>$summary, 'species'=>$species, 'latest'=>hash('sha256', json_encode($rows))]);
+  $chart_path=$config['EXTRACTED'].'/Charts/'.$chart;
+  $chart_version=$chart ? $chart.':'.filemtime($chart_path).':'.filesize($chart_path) : '';
+  echo json_encode(['summary'=>$summary, 'species'=>$species, 'latest'=>hash('sha256', json_encode($rows)), 'chart'=>$chart_version]);
   die();
 }
 
@@ -166,9 +167,7 @@ if($dividedrefresh < 1) {
   $dividedrefresh = 1;
 }
 $time = time();
-if (file_exists('./Charts/'.$chart)) {
-  echo "<img id='chart' src=\"Charts/$chart?nocache=$time\">";
-} 
+echo "<img id='chart' loading='lazy' alt='Detection chart' ".($chart ? "src=\"Charts/$chart?nocache=$time\"" : 'hidden').">";
 ?>
 </div>
 
@@ -189,6 +188,7 @@ if (file_exists('./Charts/'.$chart)) {
 let overviewPending = false;
 let latestDetections = null;
 let latestMobile = null;
+let latestChart = null;
 let summaryHtml = null;
 let speciesHtml = null;
 let overviewTimer = null;
@@ -219,14 +219,17 @@ async function refreshOverview() {
       await loadFiveMostRecentDetections();
       latestDetections = data.latest;
       latestMobile = mobile;
-      refreshTopTen();
+    }
+    if (latestChart !== data.chart) {
+      await refreshTopTen();
+      latestChart = data.chart;
     }
   } catch (error) {
     console.warn(error.message);
   } finally { overviewPending = false; }
 }
 async function loadFiveMostRecentDetections() {
-  const response = await fetch('todays_detections.php?ajax_detections=true&display_limit=undefined&hard_limit=5' + (innerWidth <= 500 ? '&mobile=true' : ''));
+  const response = await fetch('todays_detections.php?ajax_detections=true&scope=recent&hard_limit=5' + (innerWidth <= 500 ? '&mobile=true' : ''));
   if (!response.ok) throw new Error('Recent detections unavailable');
   const html = await response.text();
   if (html.includes('Database is busy')) throw new Error('Detection database is busy');
@@ -244,7 +247,12 @@ async function refreshTopTen() {
   if (!chart) return;
   try {
     const response = await fetch('overview.php?fetch_chart_string=true');
-    if (response.ok) chart.src = 'Charts/' + (await response.text()).trim() + '?nocache=' + Date.now();
+      if (response.ok) {
+        const name = (await response.text()).trim();
+        const match = /^Combo-(\d{4})-(\d{2})-(\d{2})\.png$/.exec(name);
+        chart.hidden = !match;
+        if (match) chart.src = 'Charts/' + name + '?nocache=' + Date.now();
+      }
   } catch (error) { console.warn(error.message); }
 }
 async function refreshCustomImage() {
