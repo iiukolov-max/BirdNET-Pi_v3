@@ -11,7 +11,8 @@ import subprocess
 import time
 
 INTERVAL=60
-DIRECTORY=Path('/home/pi/BirdNET-Pi/power-logs')
+BASE=Path(__file__).resolve().parent.parent
+DIRECTORY=BASE/'power-logs'
 DIRECTORY.mkdir(exist_ok=True)
 logger=logging.getLogger('power_metrics')
 logger.setLevel(logging.INFO)
@@ -33,7 +34,7 @@ def settings():
     # Never log arbitrary config: it can contain passwords and notification URLs.
     allowed={'MODEL','OVERLAP','RECORDING_LENGTH','CHANNELS','CONFIDENCE','EXTRACTION_LENGTH','AUDIOFMT','RECS_DIR'}
     result={}
-    for line in (read('/home/pi/BirdNET-Pi/birdnet.conf') or '').splitlines():
+    for line in (read(BASE/'birdnet.conf') or '').splitlines():
         key,separator,value=line.partition('=')
         if separator and key in allowed:result[key]=value.strip().strip('"\'')
     return result
@@ -73,7 +74,7 @@ def sample():
     policy=Path('/sys/devices/system/cpu/cpufreq/policy0')
     freq={name:read(policy/name) for name in ['scaling_cur_freq','scaling_min_freq','scaling_max_freq','scaling_governor']}
     freq['time_in_state']=read(policy/'stats/time_in_state')
-    recs=Path(conf.get('RECS_DIR','/home/pi/BirdSongs'))/'StreamData'
+    recs=Path(conf.get('RECS_DIR',str(BASE.parent/'BirdSongs')))/'StreamData'
     files=[]
     for path in recs.glob('*.wav'):
         try:files.append(path.stat())
@@ -86,7 +87,7 @@ def sample():
         fields=line.split()
         if fields[2] in {'mmcblk0','sda','zram0'}:
             disks[fields[2]]={'read_sectors':int(fields[5]),'write_sectors':int(fields[9]),'io_ms':int(fields[12])}
-    source=read('/home/pi/BirdNET-Pi/scripts/utils/models.py') or ''
+    source=read(BASE/'scripts/utils/models.py') or ''
     match=re.search(r"self\.model_name \+ '\.tflite'\), num_threads=(\d+)",source)
     analysis_service=service('birdnet_analysis')
     configured_threads=analysis_service.get('v3_threads_environment')
