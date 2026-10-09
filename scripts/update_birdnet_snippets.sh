@@ -159,7 +159,8 @@ version=$($HOME/BirdNET-Pi/birdnet/bin/python3 -c "import pyarrow; print(pyarrow
 
 PY_VERSION=$($HOME/BirdNET-Pi/birdnet/bin/python3 -c "import sys; print(f'{sys.version_info[0]}{sys.version_info[1]}')")
 tf_version=$($HOME/BirdNET-Pi/birdnet/bin/python3 -c "import tflite_runtime; print(tflite_runtime.__version__)")
-if [ "$PY_VERSION" == 39 ] && [ "$tf_version" != "2.11.0" ] || [ "$PY_VERSION" != 39 ] && [ "$tf_version" != "2.17.1" ]; then
+tf_base_version=${tf_version%%.post*}
+if [ "$PY_VERSION" == 39 ] && [ "$tf_base_version" != "2.11.0" ] || [ "$PY_VERSION" != 39 ] && [ "$tf_base_version" != "2.17.1" ]; then
   get_tf_whl
   # include our numpy dependants so pip can figure out which numpy version to install
   sudo_with_user $HOME/BirdNET-Pi/birdnet/bin/pip3 install $HOME/BirdNET-Pi/$WHL pandas librosa matplotlib

@@ -1,3 +1,14 @@
+# BirdNET-Pi V3 - Preview 6
+
+Released: 2026-10-09.
+
+- One optimized TFLite library for V2/V3 and their geomodels on the qualified Pi Zero2W target.
+- Check model outputs and imports before removing the duplicate library; prevent its reinstallation during updates.
+- Original full V3 model and cache-disable option retained. Legacy V1 has a small rounding difference.
+- Estimate recording capacity from current settings when valid measurements are unavailable; exclude digital silence and partial segments.
+
+Runtime: https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/tag/v2.17.1.post2
+
 # BirdNET-Pi V3 - Preview 5
 
 Released: 2026-10-09.

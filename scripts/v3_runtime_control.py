@@ -17,4 +17,5 @@ if sys.argv[1] != 'status':
     os.chmod(temporary, 0o644)
     temporary.replace(path)
 print(json.dumps({'enabled': profile['enabled'], 'effective': 'next analyzer model load',
-                  'model': profile['model'], 'fallback': 'original full V3 and installed tflite-runtime'}))
+                  'model': profile['model'], 'fallback': 'original full V3 model without the weight cache',
+                  'unified_runtime': profile.get('unified_runtime', False)}))

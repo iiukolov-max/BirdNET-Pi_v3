@@ -103,24 +103,30 @@ def record(conf):
         if source.poll() is None:source.terminate()
     signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
     ready=Path.home()/'BirdNET-Pi'/'.archive-ready.json'
-    last_cleanup=0;completed=0;written=0;segment_bytes=0;p=None
+    last_cleanup=0;completed=0;written=0;segment_bytes=0;p=None;has_signal=False
     limit=seconds*48000*channels*2
     def finish():
-        nonlocal encoder,completed,segment_bytes
+        nonlocal encoder,completed,segment_bytes,has_signal
         encoder.stdin.close()
         if encoder.wait(timeout=30)!=0:raise RuntimeError('Archive encoding failed; partial file retained')
         dest=root/p.name
         if dest.exists():raise RuntimeError('Archive timestamp collision; original preserved')
         duration=segment_bytes/(48000*channels*2)
         os.replace(p,dest);completed+=1;encoder=None;segment_bytes=0
-        marker={'pid':os.getpid(),'path':str(dest),'format':fmt,'completed':completed,'audio_seconds':duration,'bytes':dest.stat().st_size}
+        info=dest.stat()
+        marker={'pid':os.getpid(),'path':str(dest),'format':fmt,'completed':completed,'audio_seconds':duration,'bytes':info.st_size,'has_signal':has_signal}
         rate_path=ready.with_name('.archive-rate.json')
         try:rate=json.loads(rate_path.read_text())
         except (FileNotFoundError,ValueError):rate={}
-        measured=marker['bytes']/duration
-        if rate.get('format')==fmt and rate.get('segment_seconds')==seconds:measured=.8*rate['bytes_per_second']+.2*measured
-        rate={'format':fmt,'segment_seconds':seconds,'bytes_per_second':measured}
-        rate_tmp=rate_path.with_suffix('.tmp');rate_tmp.write_text(json.dumps(rate));os.replace(rate_tmp,rate_path)
+        if has_signal and duration>=seconds*.99:
+            measured=max(info.st_size,info.st_blocks*512)/duration
+            if (rate.get('has_signal') is True and rate.get('format')==fmt and
+                    rate.get('segment_seconds')==seconds and rate.get('channels')==channels):
+                measured=.8*rate['bytes_per_second']+.2*measured
+            rate={'format':fmt,'segment_seconds':seconds,'channels':channels,'sample_rate':48000,
+                  'bytes_per_second':measured,'has_signal':True,'updated_at':time.time()}
+            rate_tmp=rate_path.with_suffix('.tmp');rate_tmp.write_text(json.dumps(rate));os.replace(rate_tmp,rate_path)
+        has_signal=False
         temp=ready.with_suffix('.tmp');temp.write_text(json.dumps(marker));os.replace(temp,ready)
         log('archive_segment_completed',path=str(dest),bytes=dest.stat().st_size)
     log('archive_started',format=fmt,segment_seconds=seconds,channels=channels,directory=str(root))
@@ -146,6 +152,7 @@ def record(conf):
                              '-f','s16le','-ar','48000','-ac',str(channels),'-i','pipe:0','-map','0:a:0','-c:a',codec,'-threads','1','-f',muxer,str(p)]
                     encoder=subprocess.Popen(command,stdin=subprocess.PIPE)
                 count=min(len(data),limit-segment_bytes)
+                if not has_signal:has_signal=bool(data[:count].strip(b'\x00'))
                 encoder.stdin.write(data[:count]);written+=count;segment_bytes+=count;data=data[count:]
                 if segment_bytes==limit:finish()
     finally:

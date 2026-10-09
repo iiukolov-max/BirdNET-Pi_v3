@@ -13,6 +13,7 @@ from archive_recording import PATTERN
 from utils.helpers import get_settings, BASE_PATH, DB_PATH
 from utils.file_failures import InvalidRecording, blocked, failures, preserve_failure
 from utils.database import connect as connect_database
+from recording_capacity import capacity
 
 BASE=Path(BASE_PATH)
 STATE=BASE/'.archive-analysis.json'
@@ -88,16 +89,10 @@ def status():
     state['eta_seconds']=eta
     state['expected_finish']=dt.datetime.fromtimestamp(time.time()+eta).astimezone().isoformat() if eta is not None else None
     conf=get_settings();disk=shutil.disk_usage(conf['RECS_DIR'])
-    threshold=int(conf.get('ARCHIVE_MAX_USED_PERCENT','85'))
-    available=max(0,disk.free-max(disk.total*(100-threshold)/100,1024**3))
-    storage={'free_bytes':disk.free,'total_bytes':disk.total,'max_used_percent':threshold,'available_before_cleanup_bytes':int(available),'estimated_files':None,'estimated_days':None}
     try:
         rate=json.loads((BASE/'.archive-rate.json').read_text())
-        if rate['format']==conf.get('AUDIOFMT') and rate['segment_seconds']==int(conf.get('RECORDING_LENGTH','15')):
-            storage['estimated_files']=int(available/(rate['bytes_per_second']*rate['segment_seconds']))
-            storage['estimated_days']=available/rate['bytes_per_second']/86400
-    except (FileNotFoundError,ValueError,KeyError,ZeroDivisionError):pass
-    state['storage']=storage
+    except (FileNotFoundError,ValueError):rate={}
+    state['storage']=capacity(conf,disk,rate)
     return state
 
 

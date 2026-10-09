@@ -11,6 +11,28 @@ spec=importlib.util.spec_from_file_location('runtime_installer',path)
 installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(installer)
 
 class RuntimeInstallerTests(unittest.TestCase):
+    def test_v2_v3_rounding_is_rejected(self):
+        import numpy as np
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            np.savez(root/'a.npz',output=np.array([[1.,2.]],dtype=np.float32))
+            np.savez(root/'b.npz',output=np.array([[1.000001,2.]],dtype=np.float32))
+            with np.load(root/'a.npz') as a,np.load(root/'b.npz') as b:
+                with self.assertRaisesRegex(ValueError,'compatibility limits'):
+                    installer.compare_compatibility(a,b)
+
+    def test_legacy_v1_small_rounding_allowed_but_rank_change_rejected(self):
+        import numpy as np
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            np.savez(root/'a.npz',output=np.array([[1.,2.,3.,4.,5.,6.]],dtype=np.float32))
+            np.savez(root/'b.npz',output=np.array([[1.000001,2.,3.,4.,5.,6.]],dtype=np.float32))
+            with np.load(root/'a.npz') as a,np.load(root/'b.npz') as b:
+                self.assertFalse(installer.compare_compatibility(a,b,legacy=True)['bit_exact'])
+            np.savez(root/'b.npz',output=np.array([[2.,1.,3.,4.,5.,6.]],dtype=np.float32))
+            with np.load(root/'a.npz') as a,np.load(root/'b.npz') as b:
+                with self.assertRaises(ValueError):installer.compare_compatibility(a,b,legacy=True)
+
     def test_corrupt_artifact_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);(root/'assets').mkdir();(root/'target').mkdir()
