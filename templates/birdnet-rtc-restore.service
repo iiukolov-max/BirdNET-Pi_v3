@@ -1,0 +1,13 @@
+[Unit]
+Description=Restore system time from optional RTC
+DefaultDependencies=no
+After=systemd-modules-load.service systemd-udev-trigger.service
+Before=time-set.target sysinit.target birdnet_recording.service birdnet_analysis.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/rtc_time_sync.py restore
+TimeoutStartSec=20
+
+[Install]
+WantedBy=sysinit.target

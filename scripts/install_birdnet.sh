@@ -67,6 +67,8 @@ sudo systemctl daemon-reload
 bash "$my_dir/scripts/install_startup_logging.sh"
 bash "$my_dir/scripts/install_audio_runtime.sh"
 bash "$my_dir/scripts/install_recording_modes.sh"
+# Optional pinned runtime: unsupported targets keep the original backend.
+sudo "$my_dir/birdnet/bin/python3" "$my_dir/scripts/install_v3_runtime.py"
 if [ "${BIRDNET_ZERO2_HEADLESS:-0}" = 1 ]; then
   sudo python3 "$my_dir/scripts/zero2_headless.py" --apply || exit 1
   sudo python3 "$my_dir/scripts/configure_zero2_runtime.py" || exit 1

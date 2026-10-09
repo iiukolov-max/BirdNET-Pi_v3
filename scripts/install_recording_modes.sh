@@ -2,6 +2,7 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 sudo /usr/bin/python3 "$root/scripts/install_sqlite_runtime.py"
+sudo /usr/bin/python3 "$root/scripts/install_rtc.py"
 sudo install -d /etc/systemd/system/birdnet_analysis.service.d /etc/systemd/system/birdnet_recording.service.d
 printf '[Unit]\nAfter=sound.target\n' | sudo tee /etc/systemd/system/birdnet_recording.service.d/77-audio-ready.conf >/dev/null
 printf '[Service]\nExecCondition=/usr/bin/python3 %s/scripts/operation_mode.py\n' "$root" | sudo tee /etc/systemd/system/birdnet_analysis.service.d/75-operation-mode.conf >/dev/null

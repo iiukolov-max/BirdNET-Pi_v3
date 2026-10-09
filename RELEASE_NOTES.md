@@ -1,3 +1,16 @@
+# BirdNET-Pi V3 - Preview 5
+
+Released: 2026-10-09.
+
+- Automatically install the validated full-V3 optimized TFLite package on Pi Zero2W / Trixie ARM64 / Python 3.13.
+- Verify downloads and exact model outputs before activation; preserve the original runtime and disabled profiles.
+- Keep two analysis threads and generate the weight cache locally. Unsupported systems retain the original backend.
+- Configure the optional DS3231 RTC on Raspberry Pi during installation and updates.
+
+Runtime: https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/tag/v2.17.1.post1
+
+Return to the original backend: `sudo birdnet/bin/python3 scripts/v3_runtime_control.py disable`; the change applies at the next model load. Use `enable` to restore the optimized profile.
+
 # BirdNET-Pi V3 — Preview 4
 
 Released: 2026-10-09. Reliability, SQLite and Economy Charts.

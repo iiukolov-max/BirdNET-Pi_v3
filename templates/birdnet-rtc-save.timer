@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically save synchronized time to optional RTC
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=15min
+AccuracySec=30s
+Unit=birdnet-rtc-save.service
+
+[Install]
+WantedBy=timers.target

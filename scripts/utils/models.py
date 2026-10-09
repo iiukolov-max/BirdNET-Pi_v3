@@ -154,12 +154,10 @@ class BirdNetV3Preview(Basemodel):
         if threads not in (1, 2, 4):
             raise ValueError('BIRDNET_V3_THREADS must be 1, 2 or 4')
         log.info('V3 inference threads: %d', threads)
-        self.interpreter = tflite.Interpreter(
-            os.path.join(MODEL_PATH, self.model_name + '.tflite'), num_threads=threads)
+        from .v3_runtime import create
+        self.interpreter = create(tflite, os.path.join(MODEL_PATH, self.model_name + '.tflite'), threads)
         input_info = self.interpreter.get_input_details()[0]
         self._input_layer_idx = input_info['index']
-        self.interpreter.resize_tensor_input(self._input_layer_idx, [1, 96000])
-        self.interpreter.allocate_tensors()
         outputs = [d for d in self.interpreter.get_output_details()
                    if list(d['shape']) == [1, len(self.labels)]]
         if len(outputs) != 1:

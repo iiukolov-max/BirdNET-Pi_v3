@@ -1,0 +1,8 @@
+[Unit]
+Description=Update optional RTC from synchronized network time
+After=time-sync.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/rtc_time_sync.py save
+TimeoutStartSec=20

@@ -9,6 +9,7 @@ import sys
 from birdnet_service_policy import CATALOG, allowed, reconcile
 
 KEEP = {'birdnet_recording.service', 'birdnet_analysis.service', 'caddy.service',
+        'birdnet-rtc-restore.service', 'birdnet-rtc-save.service', 'birdnet-rtc-save.timer',
         'birdnet-archive-analysis.service',
         'birdnet-archive-charts.service',
         'birdnet-minimal-services.service', 'birdnet-cpu-policy.service', 'birdnet-startup-log.service',
