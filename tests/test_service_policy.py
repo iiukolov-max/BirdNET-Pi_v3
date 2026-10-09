@@ -51,6 +51,26 @@ class ServicePolicyTest(unittest.TestCase):
             stopped=[unit for call in calls.call_args_list if call.args[0]=='stop' for unit in call.args[1:]]
             self.assertNotIn('birdnet_recording.service',stopped)
 
+    def test_unchanged_unit_files_do_not_reload_manager(self):
+        config = {'OPERATION_MODE': 'archive'}
+        def result(args, **kwargs):
+            unit = args[2]
+            if args[1] == 'is-enabled':
+                value = 'enabled' if policy.allowed(unit, config) and unit != 'birdnet-archive-analysis.service' else 'disabled'
+            else:
+                value = 'inactive' if 'ActiveState' in args else 'loaded'
+            return subprocess.CompletedProcess(args, 0, value + '\n', '')
+        with patch.object(policy, 'settings', return_value=config), patch.object(policy, 'run') as calls, patch.object(policy.subprocess, 'run', side_effect=result):
+            policy.reconcile()
+            self.assertFalse(any(call.args[0] in ('enable', 'disable', 'daemon-reload') for call in calls.call_args_list))
+
+    def test_changed_unit_files_reload_once_before_start(self):
+        with patch.object(policy, 'settings', return_value={'OPERATION_MODE': 'normal'}), patch.object(policy, 'run') as calls, patch.object(policy.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'loaded\n', '')):
+            policy.reconcile()
+            commands = [call.args[0] for call in calls.call_args_list]
+            self.assertEqual(commands.count('daemon-reload'), 1)
+            self.assertLess(commands.index('daemon-reload'), commands.index('start'))
+
     def test_invalid_values_are_rejected(self):
         with self.assertRaises(ValueError):policy.validate({'SERVICE_ALLOW_RECORDING':'yes'})
         with self.assertRaises(ValueError):policy.allowed('ssh.service', {})

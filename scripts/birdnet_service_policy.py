@@ -50,16 +50,20 @@ def reconcile():
                                   capture_output=True, text=True, timeout=30).stdout.strip()
             if info in ('', 'not-found'):
                 continue
+            enabled = subprocess.run(['systemctl', 'is-enabled', unit],
+                                     capture_output=True, text=True, timeout=30).stdout.strip()
             permit = allowed(unit, config)
             if not permit:
                 stops.append(unit)
                 # Economy may already have masked optional services.
-                if info != 'masked':
+                if info != 'masked' and enabled not in ('disabled', 'static', 'masked', 'masked-runtime'):
                     disables.append(unit)
             elif row.get('manual'):
-                disables.append(unit)
+                if enabled not in ('disabled', 'static', 'masked', 'masked-runtime'):
+                    disables.append(unit)
             else:
-                enables.append(unit)
+                if enabled not in ('enabled', 'static', 'alias', 'generated'):
+                    enables.append(unit)
                 if unit == 'birdnet_recording.service' and manual_running:
                     # Saving optional permissions must not break the microphone
                     # pause. Do not stop it either: the completion hook might
@@ -70,7 +74,8 @@ def reconcile():
     if stops:run('stop', *stops)
     if disables:run('disable', '--no-reload', *disables)
     if enables:run('enable', '--no-reload', *enables)
-    run('daemon-reload')
+    if disables or enables:
+        run('daemon-reload')
     if starts:run('start', '--no-block', *starts)
 
 

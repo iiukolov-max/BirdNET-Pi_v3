@@ -69,10 +69,8 @@ def main():
         return
     if '--boot' in sys.argv[1:]:
         # Boot always returns to capture-only, never resumes a manual run.
-        run('systemctl','disable','birdnet-archive-analysis.service')
         run('systemctl','stop','--no-block','birdnet-archive-analysis.service','birdnet_analysis.service')
         if allowed('birdnet_recording.service'):
-            run('systemctl','enable','birdnet_recording.service')
             run('systemctl','start','--no-block','birdnet_recording.service')
     inventory = run('systemctl', 'list-unit-files', '--no-legend', '--no-pager').stdout
     # Detached maintenance trials are transient, have no boot autostart, and
@@ -112,18 +110,22 @@ def main():
             if saved[unit]['local_regular']:
                 (backup / unit).write_bytes(local.read_bytes())
             manifest_file.write_text(json.dumps(saved, indent=2) + '\n')
-    if targets:
-        run('systemctl', 'disable', '--now', *sorted(targets))
+    pending = sorted(unit for unit in targets
+                     if not ((Path('/etc/systemd/system') / unit).is_symlink()
+                             and os.readlink(Path('/etc/systemd/system') / unit) == '/dev/null'))
+    if pending:
+        run('systemctl', 'disable', '--no-reload', *pending)
         for unit in sorted(targets):
             local = Path('/etc/systemd/system') / unit
             if local.exists() and not local.is_symlink():
                 # Only an inventoried, backed-up unit in this exact directory.
                 assert (backup / unit).is_file()
                 local.unlink()
-        run('systemctl', 'mask', '--force', *sorted(targets))
+        run('systemctl', 'mask', '--no-reload', '--force', *pending)
+        run('systemctl', 'daemon-reload')
         # SysV-generated units can retain active state through disable/reload.
+    if targets:
         run('systemctl', 'stop', *sorted(targets))
-    run('systemctl', 'daemon-reload')
     reconcile()
     states = {}
     for unit in sorted(targets):
