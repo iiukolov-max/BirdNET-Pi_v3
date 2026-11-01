@@ -9,9 +9,10 @@ import sys
 import tempfile
 import time
 import shutil
+import hashlib
 from archive_recording import PATTERN
 from utils.helpers import get_settings, BASE_PATH, DB_PATH
-from utils.file_failures import InvalidRecording, blocked, failures, preserve_failure
+from utils.file_failures import InvalidRecording, failures, preserve_failure
 from utils.database import connect as connect_database
 from recording_capacity import capacity
 
@@ -19,10 +20,16 @@ BASE=Path(BASE_PATH)
 STATE=BASE/'.archive-analysis.json'
 
 
-def files():
+def archive_entries():
     root=Path(get_settings()['RECS_DIR'])/'Archive'
     if root.is_symlink() or not (root/'.birdnet-archive').is_file():return []
-    return sorted(p for p in root.iterdir() if PATTERN.fullmatch(p.name) and p.is_file() and not p.is_symlink())
+    with os.scandir(root) as entries:
+        return sorted((entry for entry in entries if PATTERN.fullmatch(entry.name)
+                       and entry.is_file(follow_symlinks=False)), key=lambda entry:entry.name)
+
+
+def files():
+    return [Path(entry.path) for entry in archive_entries()]
 
 
 def key(path):
@@ -37,10 +44,19 @@ def completed():
 
 
 def pending():
-    done=completed();result=[]
-    for p in files():
+    done=completed();result=[];retained=failures()
+    entries=archive_entries()
+    # The guarded archive contains regular files only. Resolve its parent once,
+    # preserving the failure ledger fingerprint without resolving every file.
+    parent=str(Path(entries[0].path).parent.resolve()) if entries and retained else None
+    for entry in entries:
         try:
-            if key(p) not in done and not blocked(p):result.append(p)
+            info=entry.stat(follow_symlinks=False)
+            if (entry.name,info.st_size,info.st_mtime_ns) in done:continue
+            if retained:
+                identity=f'{os.path.join(parent,entry.name)}\0{info.st_size}\0{info.st_mtime_ns}'
+                if hashlib.sha256(identity.encode()).hexdigest() in retained:continue
+            result.append(Path(entry.path))
         except FileNotFoundError:pass
     return result
 
