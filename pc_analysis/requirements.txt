@@ -1,0 +1,6 @@
+# Tested on Windows x64, Python 3.10.1. Existing environment was used.
+numpy==1.23.5
+tensorflow==2.8.0
+protobuf==3.19.6
+soundfile>=0.12,<0.14
+soxr>=0.3,<2

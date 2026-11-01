@@ -28,6 +28,18 @@ if(isset($_GET['submit'])) {
   }
 
   $contents = file_get_contents('/etc/birdnet/birdnet.conf');
+  $backend=$_GET['analysis_backend'] ?? ($config['ANALYSIS_BACKEND'] ?? 'local');
+  $remote_ip=trim($_GET['remote_analysis_ip'] ?? ($config['REMOTE_ANALYSIS_IP'] ?? ''));
+  $remote_batch=$_GET['remote_analysis_batch'] ?? ($config['REMOTE_ANALYSIS_BATCH'] ?? '10');
+  if (!in_array($backend,array('local','remote'),true) || !ctype_digit((string)$remote_batch) || (int)$remote_batch<1 || (int)$remote_batch>100 ||
+      ($backend==='remote' && (!filter_var($remote_ip,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4) || $config['MODEL']!=='BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned'))) {
+    http_response_code(400);die(recording_text($recording_ui['remote_settings_invalid']));
+  }
+  foreach (array('ANALYSIS_BACKEND'=>$backend,'REMOTE_ANALYSIS_IP'=>$remote_ip,'REMOTE_ANALYSIS_BATCH'=>$remote_batch) as $key=>$value) {
+    $line=$key.'="'.$value.'"';
+    $contents=preg_match('/^'.preg_quote($key,'/').'=/m',$contents)
+      ? preg_replace('/^'.preg_quote($key,'/').'=.*$/m',$line,$contents) : rtrim($contents)."\n".$line."\n";
+  }
   $restart_livestream = false;
   $update_caddyfile = false;
 
@@ -294,6 +306,25 @@ $newconfig = get_config();
 ?>
       <div class="brbanner"><h1>Advanced Settings</h1></div><br>
     <form id="advancedform" action="" method="GET" data-i18n="<?php echo recording_text(json_encode($recording_ui)); ?>">
+      <table class="settingstable"><tr><td>
+      <fieldset id="analysis-backend-settings">
+      <legend><?php echo recording_text($recording_ui['analysis_location']); ?></legend>
+      <label for="analysis_backend"><?php echo recording_text($recording_ui['analysis_location']); ?></label>
+      <select id="analysis_backend" name="analysis_backend">
+      <option value="local" <?php if (($config['ANALYSIS_BACKEND'] ?? 'local')==='local') echo 'selected'; ?>><?php echo recording_text($recording_ui['analysis_local']); ?></option>
+      <option value="remote" <?php if (($config['ANALYSIS_BACKEND'] ?? 'local')==='remote') echo 'selected'; ?>><?php echo recording_text($recording_ui['analysis_remote']); ?></option>
+      </select>
+      <div id="remote-analysis-fields">
+      <label for="remote_analysis_ip"><?php echo recording_text($recording_ui['analysis_remote_ip']); ?></label>
+      <input id="remote_analysis_ip" name="remote_analysis_ip" type="text" inputmode="decimal" placeholder="192.168.0.145" pattern="[0-9]{1,3}(\.[0-9]{1,3}){3}" value="<?php echo recording_text($config['REMOTE_ANALYSIS_IP'] ?? ''); ?>">
+      <label for="remote_analysis_batch"><?php echo recording_text($recording_ui['analysis_remote_batch']); ?></label>
+      <input id="remote_analysis_batch" name="remote_analysis_batch" type="number" min="1" max="100" value="<?php echo (int)($config['REMOTE_ANALYSIS_BATCH'] ?? 10); ?>">
+      <p><?php echo recording_text($recording_ui['analysis_remote_help']); ?></p>
+      </div>
+      </fieldset>
+      <script defer src="static/remote-settings.js"></script>
+
+      </td></tr></table><br>
       <table class="settingstable"><tr><td>
       <h2>Privacy Threshold</h2>
       <div class="slidecontainer">

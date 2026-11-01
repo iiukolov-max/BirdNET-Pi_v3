@@ -7,6 +7,8 @@ import subprocess
 import tempfile
 import io
 import soundfile
+import errno
+import shutil
 from time import sleep
 
 
@@ -49,6 +51,26 @@ def spectrogram(in_file, title, comment, raw=0):
     return render_spectrogram(in_file, title, comment, raw)
 
 
+def full_recording(file, temporary, conf):
+    """Keep ordinary detection paths, sharing the complete audio inode where possible."""
+    cached = getattr(file, '_full_recording_output', None)
+    original = getattr(file, 'original_recording', file.file_name)
+    source = cached if cached and os.path.isfile(cached) else original
+    if not os.path.isfile(source):
+        source = file.file_name
+    if os.path.splitext(source)[1].lower() == '.' + conf['AUDIOFMT'].lower():
+        try:
+            os.link(source, temporary)
+        except OSError as error:
+            if error.errno not in (errno.EXDEV, errno.EPERM, errno.EOPNOTSUPP):
+                raise
+            # Separate filesystems cannot share an inode; retain full audio safely.
+            shutil.copyfile(source, temporary)
+    else:
+        # Normal recording is WAV: encode once per recording, without trimming.
+        subprocess.run(['sox', '-V1', source, temporary], check=True, capture_output=True)
+
+
 def extract_detection(file: ParseFileName, detection: Detection):
     conf = get_settings()
     new_file_name = f'{detection.common_name_safe}-{detection.confidence_pct}-{detection.date}-birdnet-{file.RTSP_id}{detection.time}.{conf["AUDIOFMT"]}'
@@ -58,12 +80,18 @@ def extract_detection(file: ParseFileName, detection: Detection):
         log.warning('Extraction exists. Moving on: %s', new_file)
     else:
         os.makedirs(new_dir, exist_ok=True)
-        temporary=new_file+'.partial.'+conf['AUDIOFMT']
-        try:
-            extract_safe(file.file_name, temporary, detection.start, detection.stop)
+        # A prior interrupted encoder may have left its deterministic .partial path.
+        # Use a private, same-filesystem directory for each atomic publication.
+        with tempfile.TemporaryDirectory(prefix='.birdnet-extract-', dir=new_dir) as folder:
+            temporary=os.path.join(folder, 'audio.'+conf['AUDIOFMT'])
+            whole = conf.getfloat('EXTRACTION_LENGTH') == conf.getfloat('RECORDING_LENGTH') > 0
+            if whole:
+                full_recording(file, temporary, conf)
+            else:
+                extract_safe(file.file_name, temporary, detection.start, detection.stop)
             os.replace(temporary,new_file)
-        finally:
-            if os.path.exists(temporary):os.remove(temporary)
+            if whole:
+                file._full_recording_output = new_file
         if not os.path.isfile('/etc/birdnet/lazy-spectrograms.enabled'):
             spectrogram(new_file, detection.common_name, new_file.replace(os.path.expanduser('~/'), ''), conf['RAW_SPECTROGRAM'])
     return new_file

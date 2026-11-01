@@ -1,3 +1,15 @@
+# BirdNET-Pi V3 - Preview 8
+
+Released: 2026-11-01.
+
+- Remote V3 Preview3.1 analysis on Windows CPU or NVIDIA CUDA. Send archive batches; return predictions only. Pi retains filtering, persistence and its audio.
+- Advanced Settings: local by default, remote computer IPv4 and archive batch size. Validate connectivity/model compatibility before applying; preserve completed results across switches/restarts.
+- Windows PC service package: isolated CPU/CUDA environments, pinned model downloads, launcher and desktop shortcut creation. Keep the computer awake during remote analysis.
+- Equal positive Extraction Length and Recording Length: retain complete audio through hardlinks; encode once when needed. Preserve detection URLs, independent cleanup/protection, and shorter extraction behavior. Handle stale partial files left by interrupted encoders.
+- Include the large-archive status optimization already in main and all changes from Preview 7. Preserve upstream model files and Orange Pi changes.
+
+Validated on Pi Zero2W/Trixie ARM64/Python3.13 and Windows/Python3.10 with RTX2060. GPU probabilities are not bit-identical to TFLite (sample max delta about0.002). A post-fix 30-second observation completed33files (~66/min); throughput depends on recordings and is not guaranteed. A clean install of the portable PC package on another computer is not yet hardware-validated. Orange Pi remote integration was not hardware-tested.
+
 # BirdNET-Pi V3 - Preview 6
 
 Released: 2026-10-09.

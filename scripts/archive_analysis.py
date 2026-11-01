@@ -136,6 +136,9 @@ def decode_archive(source, wav):
 
 
 def worker():
+    if get_settings().get('ANALYSIS_BACKEND','local')=='remote':
+        from archive_remote import worker as remote_worker
+        return remote_worker()
     if get_settings().get('OPERATION_MODE','normal')!='archive':raise RuntimeError('Archive mode required')
     import fcntl
     import signal
@@ -163,7 +166,8 @@ def worker():
                     with tempfile.TemporaryDirectory(prefix='birdnet-archive-') as folder:
                         wav=Path(folder)/(path.stem+'.wav')
                         decode_archive(source, wav)
-                        parsed=ParseFileName(str(wav));detections=run_analysis(parsed)
+                        parsed=ParseFileName(str(wav));parsed.original_recording=str(path)
+                        detections=run_analysis(parsed)
                         for d in detections:d.file_name_extr=extract_detection(parsed,d)
                         conf=get_settings()
                         db=connect_database(DB_PATH,timeout=30)

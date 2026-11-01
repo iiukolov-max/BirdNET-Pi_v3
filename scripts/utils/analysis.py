@@ -169,7 +169,11 @@ def load_global_model():
     global MODEL
     if MODEL is None:
         log.info('LOADING TF LITE MODEL...')
-        MODEL = get_model()
+        if get_settings().get('ANALYSIS_BACKEND','local')=='remote':
+            from archive_remote import Predictions
+            MODEL=Predictions(get_settings())
+        else:
+            MODEL = get_model()
         log.info('LOADING DONE!')
 
     return MODEL
@@ -183,6 +187,8 @@ def run_analysis(file):
     conf = get_settings()
     model = load_global_model()
     names = language_names(conf['DATABASE_LANG'])
+    if hasattr(model,'prepare_file'):
+        model.prepare_file(file.file_name)
 
     # Read audio data & handle errors
     audio_data = readAudioData(file.file_name, conf.getfloat('OVERLAP'), model.sample_rate, model.chunk_duration)

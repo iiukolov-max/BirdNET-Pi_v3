@@ -1,5 +1,14 @@
 {
   "en": {
+    "analysis_location": "Where to analyze recordings",
+    "analysis_local": "On this BirdNET-Pi (default)",
+    "analysis_remote": "On a remote computer",
+    "analysis_remote_ip": "Computer IP address",
+    "analysis_remote_batch": "Files per archive batch",
+    "analysis_remote_help": "Start the analysis service on the computer first. Requires BirdNET V3. Archive files are sent in batches; live analysis sends one recording at a time. Audio is not sent back to the Pi.",
+    "remote_settings_invalid": "Remote analysis requires BirdNET V3 and a valid computer IPv4 address.",
+    "remote_backend": "Analysis on computer; batches of {n} files.",
+    "remote_wait": "Waiting for the computer analysis service. Reconnecting automatically.",
     "title": "Archive analysis",
     "start": "Analyze files",
     "mode": "Recording mode",
@@ -30,6 +39,15 @@
     "recording_paused": "Microphone recording is paused during analysis and will resume automatically."
   },
   "ru": {
+    "analysis_location": "Где анализировать записи",
+    "analysis_local": "На этом BirdNET-Pi (по умолчанию)",
+    "analysis_remote": "На удалённом компьютере",
+    "analysis_remote_ip": "IP-адрес компьютера",
+    "analysis_remote_batch": "Файлов в пакете архива",
+    "analysis_remote_help": "Сначала запустите сервис анализа на компьютере. Требуется BirdNET V3. Архив отправляется пакетами; при непрерывном анализе передаётся по одной записи. Аудиофайлы обратно на Pi не передаются.",
+    "remote_settings_invalid": "Для удалённого анализа выберите BirdNET V3 и укажите корректный IPv4-адрес компьютера.",
+    "remote_backend": "Анализ на компьютере; пакеты по {n} файлов.",
+    "remote_wait": "Ожидание сервиса анализа на компьютере. Подключение восстановится автоматически.",
     "title": "Анализ архива",
     "start": "Анализировать файлы",
     "mode": "Режим записи",

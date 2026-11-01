@@ -59,3 +59,7 @@ requirements_custom.txt
 model/BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned.tflite
 model/BirdNET+_V3.0-preview3.1_Global_11K_Labels.csv
 /nbproject/private/
+pc_analysis/.venv-*/
+pc_analysis/models/
+pc_analysis/data/
+pc_analysis/service-settings.json

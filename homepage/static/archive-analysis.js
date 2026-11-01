@@ -19,6 +19,7 @@
       set('progress','');set('new_files','');set('eta','');set('errors','');
       if (active) {
         set('progress',s.status==='loading'?labels.loading:t('progress',{done:number(s.processed),total:number(s.total),left:number(s.job_remaining)}));
+        if (s.backend==='pc' && labels.remote_backend) set('progress',panel.querySelector('[data-field="progress"]').textContent+' '+t('remote_backend',{n:number(s.batch_size)}));
         if (s.recording_paused) set('progress',panel.querySelector('[data-field="progress"]').textContent+' '+labels.recording_paused);
         if (s.new_pending) set('new_files',t('new_files',{n:number(s.new_pending)}));
         let eta=s.expected_finish?t('eta',{time:new Date(s.expected_finish).toLocaleString(locale)}):labels.estimate_wait;
@@ -26,6 +27,7 @@
         set('eta',eta);
       }
       const errors=[];
+      if (s.remote_error) errors.push(labels.remote_wait || s.remote_error);
       if (s.failed) errors.push(t('failed',{n:number(s.failed)}));
       if (s.missing) errors.push(t('missing',{n:number(s.missing)}));
       if (s.status==='interrupted') errors.push(labels.interrupted);

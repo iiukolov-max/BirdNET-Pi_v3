@@ -83,6 +83,17 @@ if(isset($_GET["latitude"])){
     'ARCHIVE_MAX_USED_PERCENT' => $_GET['archive_max_used_percent'] ?? '85');
   if (!in_array($mode_fields['OPERATION_MODE'], array('normal','archive'), true)) die('Invalid recording mode');
   foreach (array_slice($mode_fields,1) as $value) if (!ctype_digit((string)$value)) die('Invalid archive setting');
+  $backend=$_GET['analysis_backend'] ?? ($config['ANALYSIS_BACKEND'] ?? 'local');
+  $remote_ip=trim($_GET['remote_analysis_ip'] ?? ($config['REMOTE_ANALYSIS_IP'] ?? ''));
+  $remote_batch=$_GET['remote_analysis_batch'] ?? ($config['REMOTE_ANALYSIS_BATCH'] ?? '10');
+  if (!in_array($backend,array('local','remote'),true)) die('Invalid analysis backend');
+  if (!ctype_digit((string)$remote_batch) || (int)$remote_batch<1 || (int)$remote_batch>100) die('Invalid remote batch size');
+  if ($backend==='remote' && (!filter_var($remote_ip,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4) || $model!=='BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned')) {
+    http_response_code(400);die(recording_text($recording_ui['remote_settings_invalid']));
+  }
+  $mode_fields['ANALYSIS_BACKEND']=$backend;
+  $mode_fields['REMOTE_ANALYSIS_IP']=$remote_ip;
+  $mode_fields['REMOTE_ANALYSIS_BATCH']=$remote_batch;
   if (isset($_GET['service_permissions_present'])) {
     foreach (birdnet_service_catalog() as $row) {
       if (!empty($row['fixed'])) continue;

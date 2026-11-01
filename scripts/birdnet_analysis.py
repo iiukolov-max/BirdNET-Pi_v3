@@ -18,6 +18,7 @@ from utils.classes import ParseFileName
 from utils.reporting import extract_detection, summary, write_to_file, write_detections_to_db, apprise, bird_weather, heartbeat, \
     update_json_file
 from utils.file_failures import InvalidRecording, blocked, preserve_failure
+from archive_remote import RemoteAnalysisStopped
 
 shutdown = False
 ready_published = False
@@ -119,6 +120,8 @@ def process_file(file_name, report_queue):
             log.warning('reporting queue not yet empty')
         report_queue.join()
         report_queue.put((file, detections))
+    except RemoteAnalysisStopped:
+        log.info('Remote analysis stopped; source retained for the next run')
     except InvalidRecording as e:
         log.error('Recording quarantined: %s', preserve_failure(file_name,e,quarantine=True))
     except FileNotFoundError:

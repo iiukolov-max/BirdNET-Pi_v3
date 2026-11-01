@@ -14,6 +14,8 @@ class InstallDefaultsTest(unittest.TestCase):
         self.assertEqual(config['OPERATION_MODE'], 'normal')
         self.assertEqual(config['MODEL'], 'BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned')
         self.assertEqual(config['GEO_MODEL'], 'v3.0.4')
+        self.assertEqual(config['ANALYSIS_BACKEND'],'local')
+        self.assertEqual(config['REMOTE_ANALYSIS_BATCH'],'10')
         for row in json.loads((ROOT/'scripts/service_policy.json').read_text()):
             if row.get('fixed'):continue
             self.assertEqual(row['default'], 1)

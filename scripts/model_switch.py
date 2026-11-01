@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 from birdnet_service_policy import allowed, validate
+import analysis_backend
 
 BASE = Path(__file__).resolve().parent.parent
 CONFIG = BASE / 'birdnet.conf'
@@ -84,6 +85,8 @@ def apply(candidate):
     previous = CONFIG.read_text()
     before, after = values(previous), values(candidate)
     validate(after)
+    backend_changed=any(before.get(k,{'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':'','REMOTE_ANALYSIS_BATCH':'10'}[k])!=after.get(k,{'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':'','REMOTE_ANALYSIS_BATCH':'10'}[k]) for k in analysis_backend.KEYS)
+    analysis_backend.validate(after,check=backend_changed and after.get('ANALYSIS_BACKEND','local')=='remote')
     target = after.get('MODEL')
     mode = after.get('OPERATION_MODE', 'normal')
     if mode not in ('normal', 'archive'):
@@ -141,6 +144,7 @@ def apply(candidate):
     analysis_keys={'MODEL','CONFIDENCE','SENSITIVITY','SF_THRESH','DATA_MODEL_VERSION',
                    'PRIVACY_THRESHOLD','GEO_MODEL','LATITUDE','LONGITUDE','DATABASE_LANG',
                    'OVERLAP','RECORDING_LENGTH','EXTRACTION_LENGTH','AUDIOFMT','RAW_SPECTROGRAM'}
+    analysis_keys.update(analysis_backend.KEYS)
     analysis_change=mode_changed or 'SERVICE_ALLOW_ANALYSIS' in changed or bool(changed&analysis_keys) or any(k.startswith(('APPRISE_','BIRDWEATHER')) for k in changed)
     analysis_active=active('birdnet_analysis')
     try:
@@ -173,6 +177,7 @@ def apply(candidate):
             if allowed('birdnet_recording.service', effective):await_ready(target)
         profiles[target] = {k: v for k, v in values(candidate).items() if k in KEYS}
         atomic(STATE, json.dumps(profiles, indent=2) + '\n')
+        if manual_active and backend_changed and mode=='archive' and allowed('birdnet-archive-analysis.service',effective):manual_service('start')
     except BaseException as exc:
         if touch_analysis:service('stop')
         if restart_recording: recording_service('stop')

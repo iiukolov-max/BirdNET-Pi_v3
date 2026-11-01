@@ -2,9 +2,13 @@
 
 Local acoustic monitoring based on [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), with BirdNET+ V3 Preview, recording modes and manual detection review.
 
-**Current release:** [v3-preview.6](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases/tag/v3-preview.6) · [Release notes](RELEASE_NOTES.md) · [Published releases](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases)
+**Current release:** [v3-preview.8](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases/tag/v3-preview.8) · [Release notes](RELEASE_NOTES.md) · [Published releases](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases)
 
 ## Features
+
+- Optional [remote CPU/NVIDIA CUDA analysis](pc_analysis/README.md), archive batches and a Windows launch shortcut. Choose local (default) or remote IPv4 and batch size in **Advanced Settings**. Only V3 Preview3.1 supports remote analysis in this release.
+- Equal Extraction Length and Recording Length retain complete audio through shared files instead of repeated trimming; shorter extracts keep the existing behavior.
+
 
 - On Pi Zero2W with Trixie ARM64 and Python 3.13, install/update automatically adds the [validated optimized TFLite runtime](https://github.com/iiukolov-max/birdnet-tflite-runtime). Downloads are pinned and verified. V2/V3 and their geomodels use one native library after output checks; the duplicate backend is removed. The original full 11,560-class V3 model and cache-disable option remain available. Legacy V1 has a small documented rounding difference. Other targets retain their existing backend.
 - Raspberry Pi installation/update configures an optional DS3231 RTC: UTC, boot-time restoration and periodic NTP-to-RTC synchronization. Missing hardware is skipped; Wi-Fi and Bluetooth are not disabled by the installer.
@@ -27,7 +31,7 @@ Orange Pi support was contributed and hardware-tested by [miketimofeev](https://
 Install the latest published preview:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.6/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.6 bash birdnet-install.sh
+curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.8/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.8 bash birdnet-install.sh
 ```
 
 For **Raspberry Pi Zero 2 W without a display or camera**, add `--zero2-headless` to the installer command. This Raspberry Pi profile backs up boot settings, applies `cma=0` and `gpu_mem=16`, disables graphics/camera and adds 1 GiB disk swap while retaining zram. Do not select this profile for Orange Pi.
