@@ -1,143 +1,163 @@
-# Анализ пакетов на компьютере
+# Batch analysis on a computer
 
-Поддерживается только V3 Preview3.1; выбор CPU/CUDA меняет вычислительный backend, а не версию модели. Другие модели требуют отдельного адаптера.
+Only V3 Preview3.1 is supported. Choosing CPU or CUDA changes the inference
+backend, not the model version. Other models require a separate adapter.
 
-Компьютер принимает исходные записи по HTTP в локальной сети и возвращает
-предсказания BirdNET V3 Preview 3.1. Raspberry Pi применяет свои настройки,
-геофильтр, списки видов, пороги и сохраняет обнаружения и аудиофрагменты в обычный
-интерфейс. Размер пакета N настраивается; начальное значение — 10 файлов.
+The computer receives source recordings over HTTP on the local network and
+returns BirdNET V3 Preview 3.1 predictions. Raspberry Pi applies its own settings,
+geographic filter, species lists and thresholds, then saves detections and audio
+through the usual interface. The archive batch size is configurable and defaults
+to 10 files.
 
-## Что сохраняется
+## Data retention
 
-- На ПК: JSON-предсказания в каталоге `--cache`, отдельно для SHA256 аудио,
-  версии модели, количества предсказаний и перекрытия окон. Исходные аудиофайлы
-  не накапливаются на ПК: текущий пакет обрабатывается в памяти.
-- На Pi: исходник остаётся в Archive, а успешная обработка отмечается в
-  `archive_processed` одной транзакцией с обнаружениями. Обычная очистка архива
-  при заполнении карты по-прежнему действует.
-- Повторная отправка использует кеш ПК. Повторный импорт не добавляет дубли.
-  При несовпадении отпечатка исходника импорт отменяется.
-- При разрыве соединения клиент повторяет текущий пакет. После перезапуска
-  задания уже импортированные файлы исключаются из очереди.
+- **Computer:** JSON predictions are stored in `--cache`, keyed by the audio
+  SHA256, model version, prediction count and window overlap. Source audio is
+  processed in memory and is not accumulated on the computer.
+- **Pi:** successful completion, detection counts and detections commit together
+  in SQLite. Confirmed zero-result, unchanged, unshared archive originals may be
+  removed after that commit. Positive, unknown and failed results retain their
+  source. See [analysis history](../docs/ANALYSIS_HISTORY.md). Normal archive
+  cleanup still applies when storage reaches its configured limit.
+- Resubmitting audio uses the computer's cache. Reimporting results does not add
+  duplicate detections. Import is cancelled if the source fingerprint changed.
+- If the connection fails, the client retries the current batch. Restarting a
+  job excludes files whose results have already been imported.
 
-## Установка пакета Windows и ярлык
+## Windows package and desktop shortcut
 
-Требуются Windows x64 и Python 3.10 x64. Распаковать пакет в постоянный каталог,
-сохранив соседние папки pc_analysis и scripts. В PowerShell из pc_analysis:
+Windows x64 and Python 3.10 x64 are required. Extract the package to a permanent
+directory, keeping `pc_analysis` and `scripts` next to each other. In PowerShell,
+from `pc_analysis`, run:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Setup-Service.ps1 -PiAddress 192.168.0.105 -Backend cuda
 powershell -NoProfile -ExecutionPolicy Bypass -File .\New-Shortcut.ps1
 ```
 
-Для CPU заменить cuda на cpu. Setup создаёт отдельное окружение, устанавливает
-зависимости и загружает модель и метки с проверкой размера/SHA256. CUDA требует
-совместимого драйвера NVIDIA; CPU не требует видеокарты. Веса и окружение не
-включены в ZIP и загружаются при установке. Чистая установка переносимого пакета
-на другой машине отдельно не проверялась; вычисления и LAN проверены на рабочем ПК.
+For CPU inference, replace `cuda` with `cpu`. Setup creates a separate environment,
+installs dependencies and downloads the model and labels with size/SHA256 checks.
+CUDA requires a compatible NVIDIA driver; CPU inference does not need a GPU.
+Model weights and the environment are downloaded during setup and are not
+included in the ZIP. A clean installation of the portable package on another
+computer has not been separately verified; inference and LAN communication were
+tested on the development computer.
 
-После перезагрузки нажать **BirdNET Analysis**. Ярлык запускает сервис в фоне;
-автозапуск при входе Windows не регистрируется. Проверка без ожидания Enter:
-`powershell -NoProfile -ExecutionPolicy Bypass -File .\Start-Service.ps1 -NoWait`.
-Порт 8766 должен быть доступен с Pi; автоматических изменений Firewall нет.
+After rebooting, click **BirdNET Analysis** to start the service in the background.
+The shortcut does not register automatic startup at Windows sign-in. To start
+without waiting for Enter:
 
-## Запуск на Windows
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Start-Service.ps1 -NoWait
+```
 
-Проверено с Python 3.10.1 x64, TensorFlow 2.8.0 на CPU. Установленные библиотеки
-этого рабочего компьютера уже подходят. Для отдельного окружения зависимости
-перечислены в `requirements.txt`; установка с нуля отдельно не проверена.
+Port 8766 must be reachable from the Pi. Setup does not change Windows Firewall
+rules automatically.
 
-Нужны исходная модель и CSV из `model/v3-manifest.json`. При запуске проверяются
-SHA256 обоих файлов. Модель содержит все 11 560 классов; GPU не требуется.
+## Manual Windows startup
 
-Из корня репозитория:
+CPU inference was tested with Python 3.10.1 x64 and TensorFlow 2.8.0. Dependencies
+for a separate environment are listed in `requirements.txt`; a clean installation
+of that environment has not been separately verified.
+
+Use the original model and label CSV listed in `../model/v3-manifest.json`. The
+service checks both SHA256 values at startup. The model includes all 11,560
+output classes and does not require a GPU for CPU inference.
+
+From the repository root:
 
 ```powershell
 python pc_analysis/server.py --model "C:/BirdNET-models/BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned.tflite" --labels "C:/BirdNET-models/BirdNET+_V3.0-preview3.1_Global_11K_Labels.csv" --cache "C:/BirdNET-data/cache" --threads 4 --bind 0.0.0.0 --allow-client 192.168.0.105 --advertise-ip 192.168.0.145
 ```
 
-В примере Pi имеет IP `192.168.0.105`, компьютер — `192.168.0.145`. Заменить на
-свои адреса. API принимает запросы только от явно разрешённого Pi и самого ПК.
-Доступ с Pi к TCP 8766 должен быть разрешён Windows Firewall. Для работы на этом
-компьютере уже создан ярлык **BirdNET Analysis**; он запускает GPU-сервис в фоне
-и показывает актуальный IP компьютера. После перезагрузки нажать этот ярлык.
+The examples use `192.168.0.105` for the Pi and `192.168.0.145` for the computer.
+Replace them with your own addresses. The API accepts requests only from the
+explicitly allowed Pi and the computer itself. Allow access from the Pi to TCP
+port 8766 in Windows Firewall. A shortcut created by the setup scripts starts
+the selected service in the background and displays the computer's current IP.
 
-Необязательный запасной транспорт через SSH, если прямой LAN недоступен:
+An optional SSH fallback is available when a direct LAN connection is unavailable:
 
 ```powershell
-python pc_analysis/connect.py --host pi@192.168.0.105 --host-key "SHA256:ПРОВЕРЕННЫЙ_ОТПЕЧАТОК_SSH"
+python pc_analysis/connect.py --host pi@192.168.0.105 --host-key "SHA256:VERIFIED_SSH_FINGERPRINT"
 ```
 
-Пароль вводится интерактивно и остаётся в памяти. `connect.py` переподключает
-SSH при обрыве; Ctrl+C закрывает туннель. Туннель публикует loopback-порт 8766
-на Pi; клиент использует его только если IP компьютера совпадает с выбранным
-в Settings. Для штатного прямого LAN-подключения SSH и его пароль не нужны.
+The password is entered interactively and kept in memory. `connect.py` reconnects
+after an SSH interruption; Ctrl+C closes the tunnel. The tunnel exposes loopback
+port 8766 on the Pi. The client uses it only when the computer's IP matches the
+address selected in Settings. Direct LAN communication does not require SSH or
+an SSH password.
 
-## Настройка Raspberry Pi
+## Raspberry Pi settings
 
-В **Tools → Settings → Advanced Settings**, блок **Где анализировать записи / Where to analyze
-recordings**:
+In **Tools → Settings → Advanced Settings**, open **Where to analyze recordings**:
 
-1. **На этом BirdNET-Pi** — локальный режим по умолчанию.
-2. **На удалённом компьютере** — указать IPv4 компьютера и размер пакета N,
-   затем сохранить настройки. Требуются запущенный сервис и BirdNET V3.
+1. Select the local BirdNET-Pi option for the default local mode.
+2. Select the remote computer option, enter its IPv4 address and archive batch
+   size, then save. The service must be running, and BirdNET V3 must be selected.
 
-Проверка доступности выполняется до смены конфигурации; при неудаче текущий
-анализ продолжает работать. Переключение активного архивного задания
-перезапускает его с новой настройкой, исключая уже импортированные файлы.
-В обычном режиме обработки записи передаются по одной; N применяется к архиву.
+Connectivity is checked before switching to remote analysis. If that check
+fails, the current analysis continues. Switching an active archive job restarts
+it with the new backend, excluding files whose results were already imported.
+Normal mode sends recordings individually; the batch size applies to archives.
 
-Настройки в конфигурации: `ANALYSIS_BACKEND=local|remote`,
-`REMOTE_ANALYSIS_IP=192.168.0.145`, `REMOTE_ANALYSIS_BATCH=10`. При отсутствии
-новых ключей используется локальный анализ. Старый экспериментальный override
-`60-remote.conf` с переменными `BIRDNET_REMOTE_URL/BATCH` больше не выбирает
-backend; его следует удалить при переходе на эту версию.
+Configuration keys: `ANALYSIS_BACKEND=local|remote`,
+`REMOTE_ANALYSIS_IP=192.168.0.145`, `REMOTE_ANALYSIS_BATCH=10`. Missing keys default
+to local analysis. The earlier experimental `60-remote.conf` override using
+`BIRDNET_REMOTE_URL/BATCH` no longer selects the backend; remove that override
+when migrating to this version.
 
-Для возврата к анализу на Pi выбрать локальный режим в Settings. Результаты,
-уже записанные удалённым клиентом, сохраняются. Для больших файлов уменьшить N:
-максимум записи 16 МиБ, HTTP-пакета 256 МиБ, длительности записи 120 секунд.
+To return to Pi analysis, select local mode in Settings. Previously imported
+results are retained. Reduce the batch size for large files: the limits are
+16 MiB per recording, 256 MiB per HTTP batch and 120 seconds per recording.
 
-## API и проверка
+## API and diagnostics
 
-- `GET /health`: готовность, SHA модели/меток, число обработанных файлов и
-  попаданий в кеш.
-- `POST /v1/analyze`: ZIP с `manifest.json` и бинарными файлами. ZIP не
-  распаковывается в файловую систему. Ответ JSON содержит привязанные к SHA256
-  исходников предсказания по окнам. Одна повреждённая запись не отменяет
-  результаты исправных записей пакета.
-- Клиентский `archive_remote.py probe --limit 3` проверяет обмен и фильтрацию без
-  записи в production БД. Запускать через Python окружения BirdNET на Pi.
+- `GET /health`: readiness, model/label checksums, processed-file count and cache
+  hits.
+- `POST /v1/analyze`: a ZIP containing `manifest.json` and binary audio files.
+  The ZIP is not extracted to disk. The JSON response contains window predictions
+  tied to each source SHA256. One corrupt recording does not discard results
+  for other files in the batch.
+- The Pi client command `archive_remote.py probe --limit 3` checks communication
+  and filtering without writing to the production database. Run it with the
+  Pi's BirdNET Python environment.
 
 ## NVIDIA GPU
 
-На рабочем компьютере дополнительно проверена RTX 2060 (6 ГБ), драйвер 581.80,
-ONNX Runtime GPU 1.23.2 с CUDA 12.9 и cuDNN 9.10.2.21. GPU-зависимости находятся
-в отдельном Python-окружении; TensorFlow CPU-окружение сохраняется для возврата.
-Зависимости: `requirements-gpu.txt`.
+GPU inference was tested on an RTX 2060 with 6 GB VRAM, driver 581.80, ONNX Runtime
+GPU 1.23.2, CUDA 12.9 and cuDNN 9.10.2.21. GPU dependencies use a separate Python
+environment; the TensorFlow CPU environment is retained for switching back.
+Dependencies are listed in `requirements-gpu.txt`.
 
-Используется официальный ONNX-файл
-`BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned.onnx` из
-https://zenodo.org/records/20703646, SHA256
+The service uses the official
+`BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned.onnx` file from
+https://zenodo.org/records/20703646 with SHA256
 `69cfc8db3ebec163feb6329e546eb56e1aadac2a309f1ee99aecfabd1aa9bd24`.
-Сервис проверяет его при запуске. Запуск вместо CPU-варианта:
+The checksum is verified at startup. To use it instead of the CPU service:
 
 ```powershell
 python pc_analysis/gpu.py --model "C:/BirdNET-models/BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned.onnx" --labels "C:/BirdNET-models/BirdNET+_V3.0-preview3.1_Global_11K_Labels.csv" --cache "C:/BirdNET-data/gpu-cache" --port 8766 --bind 0.0.0.0 --allow-client 192.168.0.105 --advertise-ip 192.168.0.145
 ```
 
-Кеш GPU отделён от CPU. По `/health` проверяется `backend=onnx-cuda`; если CUDA
-не инициализируется, GPU-сервис завершает запуск вместо скрытого перехода на CPU.
-Служебные операции обработки формы тензоров могут выполняться на CPU.
+GPU and CPU caches are separate. Check `/health` for `backend=onnx-cuda`. If CUDA
+cannot initialize, the GPU service fails startup instead of silently switching
+to CPU. Tensor-shape bookkeeping operations may still run on the CPU.
 
-В проверке 10 записей / 19 окон обнаружения при пороге 0,6 совпали. Вероятности
-не совпадают побитово: максимальное отличие в этой проверке около 0,002;
-ранжирование слабых предсказаний местами отличается. Это не гарантия одинакового
-решения для любого файла вблизи порога. Исходники на Pi сохраняются.
+In a comparison of 10 recordings and 19 windows, detections at a 0.6 threshold
+matched. Probabilities were not bit-identical: the maximum observed difference
+was about 0.002, and some low-confidence predictions changed order. This does
+not guarantee identical decisions for every recording near the threshold.
+Archive retention follows the rules described above.
 
-Скорость зависит от процессора и содержимого аудио. Сравнение backend на тестовых
-файлах допускает небольшое отличие floating point; перед вводом в работу нужно
-проверять состав детекций и пограничные значения порога.
+Performance depends on the CPU and audio content. Allow for small floating-point
+differences when comparing backends; check detections near the chosen threshold
+before relying on a new backend.
 
-## Полные записи
+## Full recordings
 
-При равных положительных Extraction Length и Recording Length Pi сохраняет полное аудио без повторной нарезки. Пути обнаружений используют hardlink, переживающий удаление исходника. Если требуется другой формат, запись кодируется один раз. При меньшей Extraction Length сохраняется прежняя нарезка. Ранее созданные фрагменты не переписываются.
+When positive Extraction Length and Recording Length are equal, the Pi retains
+full audio without repeated trimming. Detection paths use hardlinks that survive
+deletion of the original path. If another format is required, the recording is
+encoded once. Shorter Extraction Length retains the existing clip-extraction
+behavior. Previously generated clips are not rewritten.
