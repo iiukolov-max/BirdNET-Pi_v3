@@ -1,9 +1,10 @@
 <?php
 function get_overview_new_species($db, $today = null) {
   $today = $today ?? date('Y-m-d');
-  $month = (new DateTimeImmutable($today))->format('Y-m-01');
+  // Today and the preceding 30 calendar days form an inclusive 31-day window.
+  $window_start = (new DateTimeImmutable($today))->modify('-30 days')->format('Y-m-d');
   $lists = [];
-  foreach (['all' => '', 'month' => 'WHERE species.first_seen >= :month'] as $key => $filter) {
+  foreach (['all' => '', 'month' => 'WHERE species.first_seen >= :window_start'] as $key => $filter) {
     $query = $db->prepare("WITH species AS (
       SELECT Sci_Name,
              MIN(Date || ' ' || Time) AS first_seen,
@@ -17,7 +18,7 @@ function get_overview_new_species($db, $today = null) {
       ) $filter ORDER BY species.first_seen DESC, species.Sci_Name ASC LIMIT 10");
     if (!$query) throw new RuntimeException('Cannot prepare new species list');
     $query->bindValue(':today', $today, SQLITE3_TEXT);
-    if ($key === 'month') $query->bindValue(':month', $month, SQLITE3_TEXT);
+    if ($key === 'month') $query->bindValue(':window_start', $window_start, SQLITE3_TEXT);
     $result = $query->execute();
     if (!$result) throw new RuntimeException('Cannot read new species list');
     $lists[$key] = [];
@@ -32,7 +33,7 @@ function render_overview_new_species($lists) {
   ?>
   <section id="overview-new-species" class="new-species-panel">
     <table aria-label="Latest 10 newly discovered species and last encounter dates">
-      <thead><tr><th scope="col">New species · All time</th><th scope="col">New species · This month</th></tr></thead>
+      <thead><tr><th scope="col">New species · All time</th><th scope="col" title="First detected in the last 31 days, including today">New species · Last month</th></tr></thead>
       <tbody>
       <?php for ($i=0,$count=max(1,count($lists['all']),count($lists['month']));$i<$count;$i++) { ?>
         <tr><?php foreach (['all','month'] as $key) { ?><td>

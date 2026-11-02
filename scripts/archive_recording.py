@@ -18,6 +18,16 @@ FORMATS = {'flac': ('flac', 'flac'), 'mp3': ('libmp3lame', 'mp3'),
 PATTERN = re.compile(r'^\d{4}-\d{2}-\d{2}-birdnet-\d{2}:\d{2}:\d{2}\.(flac|mp3|ogg|opus|wav)$')
 
 
+def cleanup_limit(previous, path=Path('/etc/birdnet/birdnet.conf')):
+    """Reload only the live cleanup threshold; keep capture settings stable."""
+    try:
+        match = re.search(r'^ARCHIVE_MAX_USED_PERCENT="?(\d+)"?\s*$', path.read_text(), re.M)
+        value = int(match[1]) if match else previous
+        return value if 50 <= value <= 95 else previous
+    except (OSError, ValueError):
+        return previous
+
+
 def log(event, **data):
     print(json.dumps(dict(event=event, time=dt.datetime.now().astimezone().isoformat(), **data)), flush=True)
 
@@ -133,6 +143,7 @@ def record(conf):
     try:
         while True:
             if time.monotonic()-last_cleanup>10 and not stopping:
+                trigger=target=cleanup_limit(trigger)
                 cleanup(root,trigger,target,batch);last_cleanup=time.monotonic()
             if errors:raise RuntimeError(errors[0])
             try:data=chunks.get(timeout=1)

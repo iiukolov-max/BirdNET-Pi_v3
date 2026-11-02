@@ -36,7 +36,7 @@ def run(*args):
                           check=True, timeout=120)
 
 
-def reconcile():
+def reconcile(keys=None):
     """Mode guard restores unit files first; never autostart manual analysis."""
     config = settings()
     validate(config)
@@ -45,6 +45,8 @@ def reconcile():
         ['systemctl','show','birdnet-archive-analysis.service','-p','ActiveState','--value'],
         capture_output=True,text=True,timeout=30).stdout.strip() in ('active','activating','reloading')
     for row in CATALOG:
+        if keys is not None and 'SERVICE_ALLOW_'+row['key'] not in keys:
+            continue
         for unit in row['units']:
             info = subprocess.run(['systemctl', 'show', unit, '-p', 'LoadState', '--value'],
                                   capture_output=True, text=True, timeout=30).stdout.strip()
@@ -100,8 +102,11 @@ def main():
         raise RuntimeError('Run as root')
     if sys.argv[1:] == ['install']:
         install()
-    elif sys.argv[1:] == ['apply']:
-        reconcile()
+    elif sys.argv[1:2] == ['apply']:
+        keys=set(sys.argv[2:]) if len(sys.argv)>2 else None
+        if keys is not None and not keys <= {'SERVICE_ALLOW_'+r['key'] for r in CATALOG}:
+            raise ValueError('Unknown service permission')
+        reconcile(keys)
     else:
         raise ValueError('Expected check UNIT, install or apply')
     return 0

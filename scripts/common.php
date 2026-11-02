@@ -22,7 +22,8 @@ function set_timezone() {
 }
 
 function get_config($force_reload = false) {
-  $mtime = stat('/etc/birdnet/birdnet.conf')["mtime"];
+  clearstatcache(true,'/etc/birdnet/birdnet.conf');
+  $mtime = hash_file('sha256','/etc/birdnet/birdnet.conf');
   if (isset($_SESSION['my_config_version']) && $_SESSION['my_config_version'] !== $mtime) {
     $force_reload = true;
   }

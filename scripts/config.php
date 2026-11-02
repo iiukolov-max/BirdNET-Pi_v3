@@ -28,6 +28,7 @@ if (file_exists($home."/BirdNET-Pi/body.txt")) {
   $apprise_notification_body = "";
 }
 
+$apprise_notification_body_original=$apprise_notification_body;
 function syslog_shell_exec($cmd, $sudo_user = null) {
   if ($sudo_user) {
     $cmd = "sudo -u $sudo_user $cmd";
@@ -63,6 +64,7 @@ if(isset($_GET['restart_php']) && $_GET['restart_php'] == "true") {
 
 # Basic Settings
 if(isset($_GET["latitude"])){
+  settings_assert_revision();
   $latitude = $_GET["latitude"];
   $longitude = $_GET["longitude"];
   $site_name = $_GET["site_name"];
@@ -159,7 +161,11 @@ if(isset($_GET["latitude"])){
   }
 
   // logic for setting the date and time based on user inputs from the form below
-  if(isset($_GET['date']) && isset($_GET['time'])) {
+  $manual_clock=isset($_GET['date'],$_GET['time']);
+  $clock_changed=!isset($_GET['initial_clock_mode']) ||
+    $_GET['initial_clock_mode']!==($manual_clock ? 'manual' : 'ntp') ||
+    ($manual_clock && ($_GET['date']!==($_GET['initial_date'] ?? '') || $_GET['time']!==($_GET['initial_time'] ?? '')));
+  if($clock_changed && $manual_clock) {
     // can't set the date manually if it's getting it from the internet, disable ntp
     exec("sudo timedatectl set-ntp false");
 
@@ -168,7 +174,7 @@ if(isset($_GET["latitude"])){
     if ($datetime && $datetime->format('Y-m-d H:i') === $_GET['date'] . ' ' . $_GET['time']) {
       exec("sudo date -s '".$_GET['date']." ".$_GET['time']."'");
     }
-  } else {
+  } elseif ($clock_changed) {
     // user checked 'use time from internet if available,' so make sure that's on
     if(strlen(trim(exec("sudo timedatectl | grep \"NTP service: active\""))) == 0){
       exec("sudo timedatectl set-ntp true");
@@ -196,15 +202,15 @@ if(isset($_GET["latitude"])){
 
   session_write_close();
   try {$settings_job=enqueue_settings($contents);} catch (Throwable $error) {
-    http_response_code(500);die(htmlspecialchars($error->getMessage(),ENT_QUOTES));
+    http_response_code($error->getCode()===409 ? 409 : 500);die(htmlspecialchars($error->getMessage(),ENT_QUOTES));
   }
 
-  if(isset($apprise_input)){
+  if(isset($apprise_input) && $apprise_input!==$apprise_config){
     $appriseconfig = fopen($home."/BirdNET-Pi/apprise.txt", "w");
     fwrite($appriseconfig, $apprise_input);
     $apprise_config = $apprise_input;
   }
-  if(isset($apprise_notification_body)){
+  if(isset($apprise_notification_body) && $apprise_notification_body!==$apprise_notification_body_original){
     $apprisebody = fopen($home."/BirdNET-Pi/body.txt", "w");
     fwrite($apprisebody, $apprise_notification_body);
   }
@@ -710,6 +716,9 @@ https://discordapp.com/api/webhooks/{WebhookID}/{WebhookToken}
       <input type="checkbox" onchange='handleChange(this)' <?php echo $checkedvalue; ?> ><br>
       <?php
       $date = new DateTime('now');
+      echo '<input type="hidden" name="initial_clock_mode" value="'.($checkedvalue==='checked' ? 'ntp' : 'manual').'">';
+      echo '<input type="hidden" name="initial_date" value="'.$date->format('Y-m-d').'">';
+      echo '<input type="hidden" name="initial_time" value="'.$date->format('H:i').'">';
       ?>
       <input onclick="this.showPicker()" type="date" id="date" name="date" value="<?php echo $date->format('Y-m-d') ?>" <?php echo $disabledvalue; ?>>
       <input onclick="this.showPicker()" type="time" id="time" name="time" value="<?php echo $date->format('H:i'); ?>" <?php echo $disabledvalue; ?>><br>
@@ -738,6 +747,7 @@ https://discordapp.com/api/webhooks/{WebhookID}/{WebhookToken}
       <br><br>
 
       <input type="hidden" name="status" value="success">
+      <input type="hidden" name="config_revision" value="<?php echo hash_file('sha256','/etc/birdnet/birdnet.conf'); ?>">
       <input type="hidden" name="submit" value="settings">
 <div class="float">
       <button type="submit" id="basicformsubmit" onclick="if(document.getElementById('basicform').checkValidity()){this.innerHTML = 'Updating... please wait.';this.classList.add('disabled')}" name="view" value="Settings">
@@ -755,4 +765,4 @@ echo recording_text($recording_ui['update']);
       </div></form>
 </div>
 
-<script defer src="static/settings-async.js"></script>
+<script defer src="static/settings-async.js?v=apply-plan-2"></script>

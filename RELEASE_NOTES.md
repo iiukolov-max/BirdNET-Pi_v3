@@ -1,3 +1,14 @@
+# BirdNET-Pi V3 - Preview 9
+
+Released: 2026-11-02.
+
+- Apply only changed Settings; save simple changes immediately and restore the screen/button after success or errors.
+- Keep recording playback responsive while loading spectrograms in page order.
+- Keep durable local/PC archive history with CSV export; remove originals only after a committed, verified zero-result analysis.
+- Show newly encountered species for the last 31 days, including today.
+
+Existing models, recording modes and Windows CPU/CUDA service remain supported. See [Settings](docs/SETTINGS.md) and [analysis history](docs/ANALYSIS_HISTORY.md).
+
 # BirdNET-Pi V3 - Preview 8
 
 Released: 2026-11-01.

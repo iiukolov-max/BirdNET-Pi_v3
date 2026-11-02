@@ -1,4 +1,38 @@
 function initCustomAudioPlayers() {
+  // One expensive image request at a time leaves connections free for audio.
+  const spectrogramQueue = [];
+  let spectrogramBusy = false;
+  const queueSpectrogram = (img, url, fallback) => {
+    spectrogramQueue.push({ img, url, fallback });
+    const next = () => {
+      if (spectrogramBusy || !spectrogramQueue.length) return;
+      const job = spectrogramQueue.shift();
+      if (!job.img.isConnected) { next(); return; }
+      spectrogramBusy = true;
+      const done = () => {
+        job.img.removeEventListener('load', done);
+        job.img.removeEventListener('error', failed);
+        spectrogramBusy = false;
+        next();
+      };
+      const failed = () => {
+        if (job.fallback) {
+          const url = job.fallback;
+          job.fallback = null;
+          job.img.src = url;
+          return;
+        }
+        job.img.remove();
+        done();
+      };
+      job.img.addEventListener('load', done);
+      job.img.addEventListener('error', failed);
+      job.img.loading = 'eager';
+      job.img.fetchPriority = 'low';
+      job.img.src = job.url;
+    };
+    next();
+  };
   // =================== Config & Helpers ===================
   const CONFIG = {
     LEFT_MARGIN_PERCENT: 6,
@@ -219,19 +253,15 @@ function initCustomAudioPlayers() {
       const img = wrapper.appendChild(document.createElement("img"));
       img.loading = "lazy";
       img.decoding = "async";
-      let triedOnDemand = false;
-      img.onerror = () => {
-        const imageUrl = new URL(imageSrc, window.location.href);
-        const pathname = decodeURIComponent(imageUrl.pathname);
-        if (!triedOnDemand && imageUrl.origin === window.location.origin &&
-            /^\/By_Date\/.*\.(flac|wav|mp3|ogg|opus)\.png$/i.test(pathname)) {
-          triedOnDemand = true;
-          img.src = "/scripts/lazy_spectrogram.php?audio=" + encodeURIComponent(pathname.slice(0, -4));
-        } else if (img.parentNode === wrapper) {
-          wrapper.removeChild(img);
-        }
-      };
-      img.src = imageSrc;
+      // Reserve space only until the image's intrinsic dimensions are known.
+      img.style.aspectRatio = 'auto 3 / 1';
+      const imageUrl = new URL(imageSrc, window.location.href);
+      const pathname = decodeURIComponent(imageUrl.pathname);
+      const fallback = imageUrl.origin === window.location.origin &&
+        /^\/By_Date\/.*\.(flac|wav|mp3|ogg|opus)\.png$/i.test(pathname)
+        ? "/scripts/lazy_spectrogram.php?audio=" + encodeURIComponent(pathname.slice(0, -4)) : null;
+      // Enqueue in DOM order, before any request can finish or fail.
+      queueSpectrogram(img, imageSrc, fallback);
       applyStyles(img, {
         width: "100%",
         display: "block",

@@ -7,8 +7,15 @@ import subprocess
 from collections import OrderedDict
 from configparser import ConfigParser
 from itertools import chain
+try:
+    from settings_plan import HOT_KEYS
+except ModuleNotFoundError:
+    from ..settings_plan import HOT_KEYS
+import threading
 
 _settings = None
+_settings_stamp = None
+_settings_lock = threading.RLock()
 
 BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DB_PATH = os.path.join(BASE_PATH, 'scripts/birds.db')
@@ -45,15 +52,25 @@ class PHPConfigParser(ConfigParser):
 
 
 def _load_settings(settings_path='/etc/birdnet/birdnet.conf', force_reload=False):
-    global _settings
-    if _settings is None or force_reload:
-        with open(settings_path) as f:
+    global _settings, _settings_stamp
+    with _settings_lock:
+        stat = os.stat(settings_path)
+        stamp = (settings_path, stat.st_ino, stat.st_mtime_ns, stat.st_size)
+        if _settings is None or force_reload or stamp != _settings_stamp:
+          with open(settings_path) as f:
             parser = PHPConfigParser(interpolation=None)
             # preserve case
             parser.optionxform = lambda option: option
             lines = chain(("[top]",), f)
             parser.read_file(lines)
-            _settings = parser['top']
+            if _settings is None or force_reload:
+                _settings = parser['top']
+            else:
+                # Only subsystems designed for hot updates may change here.
+                # Keep model/capture parameters fixed until their transaction.
+                for key in HOT_KEYS:
+                    if key in parser['top']:_settings[key]=parser.get('top',key,raw=True)
+            _settings_stamp = stamp
     return _settings
 
 

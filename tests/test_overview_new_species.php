@@ -7,20 +7,21 @@ function add_species_row($db,$date,$time,$sci,$common) {
   foreach ([$date,$time,$sci,$common] as $i=>$v) $q->bindValue($i+1,$v,SQLITE3_TEXT);
   $q->execute();
 }
-add_species_row($db,'2026-09-30','12:00:00','old','Old species');
+add_species_row($db,'2026-09-07','12:00:00','old','Old species');
 add_species_row($db,'2026-10-08','12:00:00','old','Old species');
-add_species_row($db,'2026-10-01','00:00:00','boundary','Boundary species');
+add_species_row($db,'2026-09-08','00:00:00','boundary','Boundary species');
 add_species_row($db,'2026-10-07','10:00:00','new','New species');
 add_species_row($db,'2026-10-08','09:00:00','new','New species');
 add_species_row($db,'2026-10-09','10:00:00','future','Future species');
 $db->exec("UPDATE detections SET Confidence=0.63,File_Name='latest.flac' WHERE Sci_Name='new' AND Date='2026-10-08'");
 $lists=get_overview_new_species($db,'2026-10-08');
 if (array_column($lists['all'],'Sci_Name')!==['new','boundary','old']) throw new RuntimeException('First encounter sorting');
-if (array_column($lists['month'],'Sci_Name')!==['new','boundary']) throw new RuntimeException('Month must exclude known species');
+if (array_column($lists['month'],'Sci_Name')!==['new','boundary']) throw new RuntimeException('Rolling window must include day 31 and exclude known species');
 if ($lists['all'][0]['last_seen']!=='2026-10-08 09:00:00') throw new RuntimeException('Last encounter');
 if ($lists['all'][0]['Confidence']!==0.63 || $lists['all'][0]['File_Name']!=='latest.flac') throw new RuntimeException('Confidence/file must match latest encounter');
 ob_start();render_overview_new_species($lists);$html=ob_get_clean();
 if (strpos($html,'Confidence: 63%')===false || strpos($html,'index.php?filename=latest.flac')===false) throw new RuntimeException('Confidence or recording link');
+if (strpos($html,'New species · Last month')===false || strpos($html,'This month')!==false) throw new RuntimeException('Rolling-window heading');
 add_species_row($db,'2026-10-08','11:00:00','unsafe','<script>alert(1)</script>');
 ob_start();render_overview_new_species(get_overview_new_species($db,'2026-10-08'));$html=ob_get_clean();
 if (strpos($html,'<script>')!==false || strpos($html,'08.10.2026')===false) throw new RuntimeException('Escaping/date rendering');
@@ -30,4 +31,11 @@ if (count($lists['all'])!==10 || count($lists['month'])!==10 || $lists['all'][0]
 $db->exec('DELETE FROM detections');
 ob_start();render_overview_new_species(get_overview_new_species($db,'2026-01-01'));$html=ob_get_clean();
 if (substr_count($html,'No new species')!==2) throw new RuntimeException('Empty state');
+add_species_row($db,'2026-10-02','23:59:59','older','Older species');
+add_species_row($db,'2026-11-01','10:00:00','older','Older species');
+add_species_row($db,'2026-10-03','00:00:00','boundary','Boundary species');
+add_species_row($db,'2026-11-02','12:00:00','today','Today species');
+add_species_row($db,'2026-11-03','00:00:00','future','Future species');
+$lists=get_overview_new_species($db,'2026-11-02');
+if (array_column($lists['month'],'Sci_Name')!==['today','boundary']) throw new RuntimeException('Rolling 31 days must cross months and exclude day 32 and future records');
 echo "PASS: first encounter order, month boundary, previously known species, last encounter, future exclusion, 10 limit, escaped names, empty lists\n";

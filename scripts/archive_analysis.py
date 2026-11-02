@@ -153,6 +153,7 @@ def worker():
     from utils.analysis import load_global_model,run_analysis
     from utils.classes import ParseFileName
     from utils.reporting import extract_detection
+    from archive_retention import record_result,record_failure
     try:
         load_global_model()
         state['status']='running';publish(state)
@@ -178,6 +179,7 @@ def worker():
                                 for d in detections:
                                     db.execute('INSERT INTO detections (Date,Time,Sci_Name,Com_Name,Confidence,Lat,Lon,Cutoff,Week,Sens,Overlap,File_Name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',(d.date,d.time,d.scientific_name,d.common_name,d.confidence,conf['LATITUDE'],conf['LONGITUDE'],conf['CONFIDENCE'],str(d.week),conf['SENSITIVITY'],conf['OVERLAP'],os.path.basename(d.file_name_extr)))
                                 db.execute('INSERT INTO archive_processed VALUES (?,?,?,?)',(*fingerprint,time.time()))
+                                record_result(db,fingerprint,len(detections),backend='local',seconds=time.time()-began)
                         finally:db.close()
                 try:
                     if key(path)==fingerprint:path.unlink()
@@ -190,6 +192,7 @@ def worker():
             except FileNotFoundError:
                 state['missing']+=1
             except Exception as error:
+                record_failure(path,DB_PATH,error,'local',time.time()-began)
                 preserve_failure(path,error,quarantine=isinstance(error,InvalidRecording))
                 state['failed']+=1;state['last_error']=str(error)
                 print(json.dumps({'file':path.name,'error':str(error)}),flush=True)

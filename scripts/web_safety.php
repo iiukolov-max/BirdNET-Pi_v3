@@ -19,8 +19,10 @@ function birdnet_config_parse(string $source): array {
   return $result;
 }
 function birdnet_config_update(string $source, array $values): string {
+  $current=birdnet_config_parse($source);
   foreach ($values as $key=>$value) {
     if (!preg_match('/^[A-Za-z_][A-Za-z_0-9]*$/D', $key)) throw new InvalidArgumentException('Invalid setting key');
+    if (array_key_exists($key,$current) && (string)$current[$key]===(string)$value) continue;
     $line = $key.'='.birdnet_config_value($value);$pattern='/^'.preg_quote($key,'/').'=.*$/m';
     if (preg_match($pattern,$source)) $source=preg_replace_callback($pattern,fn()=> $line,$source);
     else $source=rtrim($source)."\n".$line."\n";

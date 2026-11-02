@@ -13,12 +13,20 @@ APPRISE_CONFIG = userDir + '/BirdNET-Pi/apprise.txt'
 APPRISE_BODY = userDir + '/BirdNET-Pi/body.txt'
 
 apobj = None
+apprise_stamp = None
 images = {}
 species_last_notified = {}
 
 
 def notify(body, title, attached=""):
-    global apobj
+    global apobj, apprise_stamp
+    try:
+        info=os.stat(APPRISE_CONFIG)
+        stamp=(APPRISE_CONFIG,info.st_ino,info.st_mtime_ns,info.st_size)
+    except OSError:
+        return
+    if stamp != apprise_stamp:
+        apobj=None
     if apobj is None:
         asset = apprise.AppriseAsset(
             plugin_paths=[
@@ -30,6 +38,7 @@ def notify(body, title, attached=""):
         config = apprise.AppriseConfig()
         config.add(APPRISE_CONFIG)
         apobj.add(config)
+        apprise_stamp=stamp
 
     if attached != "":
         apobj.notify(

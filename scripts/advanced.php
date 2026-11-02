@@ -22,6 +22,7 @@ if (isset($_GET['run_species_count'])) {
  }
 
 if(isset($_GET['submit'])) {
+  settings_assert_revision();
   if (($config['OPERATION_MODE'] ?? 'normal') === 'archive' &&
       !in_array($_GET['audiofmt'] ?? $config['AUDIOFMT'], array('flac','mp3','ogg','opus','wav'), true)) {
     die('Record only supports FLAC, MP3, Ogg, Opus and WAV. Settings were not saved.');
@@ -148,7 +149,7 @@ if(isset($_GET['submit'])) {
 
   if(isset($_GET["freqshift_reconnect_delay"]) && is_numeric($_GET['freqshift_reconnect_delay'])) {
     $freqshift_reconnect_delay = $_GET["freqshift_reconnect_delay"];
-    if(strcmp($freqshift_hi,$config['FREQSHIFT_RECONNECT_DELAY']) !== 0) {
+    if(strcmp($freqshift_reconnect_delay,$config['FREQSHIFT_RECONNECT_DELAY']) !== 0) {
       $contents = preg_replace("/FREQSHIFT_RECONNECT_DELAY=.*/", "FREQSHIFT_RECONNECT_DELAY=$freqshift_reconnect_delay", $contents);
     }
   }
@@ -288,7 +289,7 @@ if (isset($_GET["max_files_species"])) {
 
   session_write_close();
   try {$settings_job=enqueue_settings($contents);} catch (Throwable $error) {
-    http_response_code(500);die(htmlspecialchars($error->getMessage(),ENT_QUOTES));
+    http_response_code($error->getCode()===409 ? 409 : 500);die(htmlspecialchars($error->getMessage(),ENT_QUOTES));
   }
   settings_response($settings_job);
 }
@@ -672,6 +673,7 @@ foreach($formats as $format){
         </table>
       <br><br>
       <input type="hidden" name="view" value="Advanced">
+      <input type="hidden" name="config_revision" value="<?php echo hash_file('sha256','/etc/birdnet/birdnet.conf'); ?>">
 <div class="float">
       <button type="submit" id="advancedformsubmit" onclick="collectrtspUrls(); if(document.getElementById('advancedform').checkValidity()){this.innerHTML = 'Updating... please wait.';this.classList.add('disabled')}" name="submit" value="advanced">
 <?php
@@ -689,4 +691,4 @@ echo recording_text($recording_ui['update']);
       </form>
 </div>
 
-<script defer src="static/settings-async.js"></script>
+<script defer src="static/settings-async.js?v=apply-plan-2"></script>

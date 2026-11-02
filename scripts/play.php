@@ -163,7 +163,9 @@ if(isset($_GET['reviewfile']) || isset($_POST['reviewfile'])) {
   die();
 }
 
-$shifted_path = $home."/BirdSongs/Extracted/By_Date/shifted/";
+$shift_version=substr(hash('sha256',json_encode(array_intersect_key($config,array_flip(['FREQSHIFT_TOOL','FREQSHIFT_HI','FREQSHIFT_LO','FREQSHIFT_PITCH'])))),0,12);
+$shift_relative='/By_Date/shifted/'.$shift_version.'/';
+$shifted_path = $home.'/BirdSongs/Extracted'.$shift_relative;
 
 if(isset($_GET['shiftfile'])) {
   ensure_authenticated('You cannot shift files for this installation');
@@ -240,7 +242,7 @@ if (get_included_files()[0] === __FILE__) {
 }
 
 ?>
-<script src="static/custom-audio-player.js?v=lazy-spectrogram-1"></script>
+<script src="static/custom-audio-player.js?v=audio-priority-4"></script>
 <script>
 function deleteDetection(filename,copylink=false) {
   if (confirm("Are you sure you want to delete this detection from the database?") == true) {
@@ -286,6 +288,7 @@ function toggleLock(filename, type, elem) {
 }
 
 function toggleShiftFreq(filename, shiftAction, elem) {
+  const shiftPrefix = <?php echo json_encode($shift_relative); ?>;
   const xhttp = new XMLHttpRequest();
   xhttp.onload = function() {
     if(this.responseText == "OK"){
@@ -295,11 +298,11 @@ function toggleShiftFreq(filename, shiftAction, elem) {
         elem.setAttribute("onclick", elem.getAttribute("onclick").replace("shift","unshift"));
         const audioDiv = elem.parentNode.querySelector(".custom-audio-player");
         if (audioDiv) {
-          audioDiv.setAttribute("data-audio-src", audioDiv.getAttribute("data-audio-src").replace("/By_Date/", "/By_Date/shifted/"));
+          audioDiv.setAttribute("data-audio-src", audioDiv.getAttribute("data-audio-src").replace("/By_Date/", shiftPrefix));
         } else {
           const atag = elem.parentNode.querySelector("a");
           if (atag) {
-            atag.setAttribute("href", atag.getAttribute("href").replace("/By_Date/", "/By_Date/shifted/"));
+            atag.setAttribute("href", atag.getAttribute("href").replace("/By_Date/", shiftPrefix));
           }
         }
       } else {
@@ -308,11 +311,11 @@ function toggleShiftFreq(filename, shiftAction, elem) {
         elem.setAttribute("onclick", elem.getAttribute("onclick").replace("unshift","shift"));
         const audioDiv = elem.parentNode.querySelector(".custom-audio-player");
         if (audioDiv) {
-          audioDiv.setAttribute("data-audio-src", audioDiv.getAttribute("data-audio-src").replace("/By_Date/shifted/", "/By_Date/"));
+          audioDiv.setAttribute("data-audio-src", audioDiv.getAttribute("data-audio-src").replace(shiftPrefix, "/By_Date/"));
         } else {
           const atag = elem.parentNode.querySelector("a");
           if (atag) {
-            atag.setAttribute("href", atag.getAttribute("href").replace("/By_Date/shifted/", "/By_Date/"));
+            atag.setAttribute("href", atag.getAttribute("href").replace(shiftPrefix, "/By_Date/"));
           }
         }
       }
@@ -620,7 +623,7 @@ if(isset($_GET['species'])){ ?>
     $comname = preg_replace('/\'/', '', $comname);
     $date = $results['Date'];
     $filename = "/By_Date/".$date."/".$comname."/".$results['File_Name'];
-    $filename_shifted = "/By_Date/shifted/".$date."/".$comname."/".$results['File_Name'];
+    $filename_shifted = $shift_relative.$date."/".$comname."/".$results['File_Name'];
     $filename_png = $filename . ".png";
     $time = $results['Time'];
     $values = round((float)round($results['Confidence'],2) * 100 ) . '%';
@@ -756,7 +759,7 @@ if(isset($_GET['filename'])){
     $comname = preg_replace('/\'/', '', $comname);
     $date = $results['Date'];
     $filename = "/By_Date/".$date."/".$comname."/".$results['File_Name'];
-    $filename_shifted = "/By_Date/shifted/".$date."/".$comname."/".$results['File_Name'];
+    $filename_shifted = $shift_relative.$date."/".$comname."/".$results['File_Name'];
     $filename_png = $filename . ".png";
     $time = $results['Time'];
     $values = round((float)round($results['Confidence'],2) * 100 ) . '%';

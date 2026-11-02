@@ -76,7 +76,8 @@ elseif ($config["LONGITUDE"] == "0.000") {
 window.onload = function() {
   var elements = document.querySelectorAll("button[name=view]");
 
-  var setViewsOpacity = function() {
+  var setViewsOpacity = function(event) {
+      if (event.currentTarget.form && ['basicform','advancedform'].includes(event.currentTarget.form.id)) return;
       document.getElementsByClassName("views")[0].style.opacity = "0.5";
   };
 

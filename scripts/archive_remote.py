@@ -154,11 +154,13 @@ def commit(path,identity,result,proxy):
     from utils.reporting import extract_detection
     from utils.helpers import get_settings,DB_PATH
     from utils.database import connect
+    from archive_retention import record_result
     if jobs.key(path)!=identity:raise ValueError('Source changed after transfer; not committing')
     conf=get_settings()
     with closing(connect(DB_PATH,timeout=30)) as db, db:
         db.execute('CREATE TABLE IF NOT EXISTS archive_processed (name TEXT,size INTEGER,mtime INTEGER,processed REAL,PRIMARY KEY(name,size,mtime))')
-        if db.execute('SELECT 1 FROM archive_processed WHERE name=? AND size=? AND mtime=?',identity).fetchone():return 0
+        # A legacy completion does not prove that this recording had no detections.
+        if db.execute('SELECT 1 FROM archive_processed WHERE name=? AND size=? AND mtime=?',identity).fetchone():return None
     for parsed,detections in analyze_result(path,result,proxy):
         for detection in detections:detection.file_name_extr=extract_detection(parsed,detection)
         if jobs.key(path)!=identity:raise ValueError('Source changed during filtering; not committing')
@@ -168,6 +170,7 @@ def commit(path,identity,result,proxy):
                     db.executemany('INSERT INTO detections (Date,Time,Sci_Name,Com_Name,Confidence,Lat,Lon,Cutoff,Week,Sens,Overlap,File_Name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                         [(d.date,d.time,d.scientific_name,d.common_name,d.confidence,conf['LATITUDE'],conf['LONGITUDE'],conf['CONFIDENCE'],str(d.week),conf['SENSITIVITY'],conf['OVERLAP'],os.path.basename(d.file_name_extr)) for d in detections])
                     db.execute('INSERT INTO archive_processed VALUES (?,?,?,?)',(*identity,time.time()))
+                    record_result(db,identity,len(detections),backend='remote',seconds=result.get('seconds'))
         return len(detections)
 
 
@@ -187,10 +190,16 @@ def worker():
     jobs.publish(state)
     try:
         proxy=Predictions(conf)
-        for offset in range(0,len(queue),batch_size):
-            began=time.time();state.update(current=queue[offset].name,current_started=began);jobs.publish(state)
-            body,identities=make_batch(queue[offset:offset+batch_size],conf)
-            state['missing']+=len(queue[offset:offset+batch_size])-len(identities)
+        offset=0
+        while offset<len(queue):
+            conf=get_settings()
+            batch_size=int(conf.get('REMOTE_ANALYSIS_BATCH','10'))
+            state['batch_size']=batch_size
+            batch=queue[offset:offset+batch_size]
+            offset+=len(batch)
+            began=time.time();state.update(current=batch[0].name,current_started=began);jobs.publish(state)
+            body,identities=make_batch(batch,conf)
+            state['missing']+=len(batch)-len(identities)
             if not identities:continue
             while True:
                 try:
@@ -210,6 +219,9 @@ def worker():
                 path,identity,sha=identities[result['member']]
                 if result['sha256']!=sha:raise ValueError('Result/source checksum mismatch')
                 if 'error' in result:
+                    from archive_retention import record_failure
+                    from utils.helpers import DB_PATH
+                    record_failure(path,DB_PATH,result['error'],'remote',result.get('seconds'))
                     jobs.preserve_failure(path,RuntimeError(result['error']),quarantine=False)
                     state['failed']+=1
                 else:
@@ -217,8 +229,22 @@ def worker():
                         detections=commit(path,identity,result,proxy)
                     except FileNotFoundError:
                         state['missing']+=1;continue
+                    except Exception as error:
+                        from archive_retention import record_failure
+                        from utils.helpers import DB_PATH
+                        record_failure(path,DB_PATH,error,'remote',result.get('seconds'))
+                        raise
                     state['processed']+=1
-                    print(json.dumps({'event':'archive_remote_analyzed','file':path.name,'detections':detections,'pc_seconds':result['seconds'],'original_retained':True}),flush=True)
+                    from archive_retention import remove_empty_source
+                    from utils.helpers import DB_PATH
+                    cleanup='retained_detections' if detections else 'retained_unknown'
+                    if detections == 0:
+                        try:cleanup=remove_empty_source(path,identity,DB_PATH)
+                        except (OSError,sqlite3.Error) as error:
+                            cleanup='cleanup_failed'
+                            print(json.dumps({'event':'archive_source_cleanup_failed','file':path.name,'error':str(error)}),flush=True)
+                    print(json.dumps({'event':'archive_remote_analyzed','file':path.name,'detections':detections,'pc_seconds':result['seconds'],
+                                      'original_retained':cleanup not in ('removed','missing'),'source_cleanup':cleanup}),flush=True)
                 jobs.publish(state)
             state['processing_seconds']+=time.time()-began
             jobs.publish(state)

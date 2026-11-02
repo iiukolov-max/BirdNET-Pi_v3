@@ -9,8 +9,9 @@ import subprocess
 import sys
 import tempfile
 import time
-from birdnet_service_policy import allowed, validate
+from birdnet_service_policy import allowed, validate, CATALOG
 import analysis_backend
+from settings_plan import HOT_KEYS
 
 BASE = Path(__file__).resolve().parent.parent
 CONFIG = BASE / 'birdnet.conf'
@@ -23,7 +24,21 @@ KEYS = ('CONFIDENCE', 'SENSITIVITY', 'SF_THRESH', 'DATA_MODEL_VERSION', 'PRIVACY
 
 
 def values(text):
-    return dict(re.findall(r'^([A-Za-z_][A-Za-z_0-9]*)=(.*)$', text, re.M))
+    result = dict(re.findall(r'^([A-Za-z_][A-Za-z_0-9]*)=(.*)$', text, re.M))
+    for key, value in result.items():
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] == '"':
+            value = re.sub(r'\\([\\"$`])', r'\1', value[1:-1])
+        result[key] = value
+    return result
+
+
+def changed_settings(before, after):
+    defaults = {'OPERATION_MODE':'normal','ARCHIVE_MAX_USED_PERCENT':'85',
+                'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':'','REMOTE_ANALYSIS_BATCH':'10'}
+    defaults.update({'SERVICE_ALLOW_'+row['key']:str(row['default']) for row in CATALOG})
+    return {k for k in before.keys() | after.keys()
+            if before.get(k, defaults.get(k)) != after.get(k, defaults.get(k))}
 
 
 def replace(text, key, value):
@@ -31,6 +46,15 @@ def replace(text, key, value):
     if re.search(r'^' + re.escape(key) + r'=', text, re.M):
         return re.sub(r'^' + re.escape(key) + r'=.*$', lambda _: line, text, flags=re.M)
     return text.rstrip() + '\n' + line + '\n'
+
+
+def merge_changed(previous, candidate):
+    """Keep original spelling/quotes for every semantically unchanged setting."""
+    raw=dict(re.findall(r'^([A-Za-z_][A-Za-z_0-9]*)=(.*)$',candidate,re.M))
+    for key in changed_settings(values(previous),values(candidate)):
+        if key in raw:previous=replace(previous,key,raw[key])
+        else:previous=re.sub(r'^'+re.escape(key)+r'=.*\n?','',previous,flags=re.M)
+    return previous
 
 
 def atomic(path, content):
@@ -84,8 +108,9 @@ def labels():
 def apply(candidate):
     previous = CONFIG.read_text()
     before, after = values(previous), values(candidate)
+    if not changed_settings(before,after):return after.get('MODEL')
     validate(after)
-    backend_changed=any(before.get(k,{'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':'','REMOTE_ANALYSIS_BATCH':'10'}[k])!=after.get(k,{'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':'','REMOTE_ANALYSIS_BATCH':'10'}[k]) for k in analysis_backend.KEYS)
+    backend_changed=any(before.get(k,{'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':''}[k])!=after.get(k,{'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':''}[k]) for k in ('ANALYSIS_BACKEND','REMOTE_ANALYSIS_IP'))
     analysis_backend.validate(after,check=backend_changed and after.get('ANALYSIS_BACKEND','local')=='remote')
     target = after.get('MODEL')
     mode = after.get('OPERATION_MODE', 'normal')
@@ -99,13 +124,16 @@ def apply(candidate):
         raise ValueError('Invalid archive segment length')
     if mode=='archive' and after.get('RTSP_STREAM','').strip().strip('"'):
         raise ValueError('Archive mode currently supports microphone input only')
-    recording_keys=('OPERATION_MODE','ARCHIVE_MAX_USED_PERCENT','CHANNELS','REC_CARD','RECORDING_LENGTH','RTSP_STREAM','LogLevel_BirdnetRecordingService')
+    recording_keys=('OPERATION_MODE','CHANNELS','REC_CARD','RECORDING_LENGTH','RTSP_STREAM','LogLevel_BirdnetRecordingService')
+    if mode=='archive':recording_keys=tuple(k for k in recording_keys if k!='LogLevel_BirdnetRecordingService')
     defaults={'OPERATION_MODE':'normal','ARCHIVE_MAX_USED_PERCENT':'85','RECORDING_LENGTH':'15'}
     restart_recording=any(before.get(k,defaults.get(k))!=after.get(k,defaults.get(k)) for k in recording_keys) or (mode=='archive' and before.get('AUDIOFMT')!=after.get('AUDIOFMT'))
+    if mode == before.get('OPERATION_MODE','normal') == 'archive' and changed_settings(before,after) <= {'LogLevel_BirdnetRecordingService'}:
+        restart_recording=False  # Python archive capture has no shell logging level.
     if target not in MODELS:
         raise ValueError('Unknown model')
     artifact = BASE / 'model' / (target + '.tflite')
-    if not artifact.is_file() or artifact.stat().st_size < 1000000:
+    if target != before.get('MODEL') and (not artifact.is_file() or artifact.stat().st_size < 1000000):
         raise ValueError('Model file is missing or incomplete; current settings retained')
     try:
         profiles = json.loads(STATE.read_text())
@@ -137,25 +165,28 @@ def apply(candidate):
         candidate = replace(candidate, 'SENSITIVITY', '1.0')
         candidate = replace(candidate, 'PRIVACY_THRESHOLD', '0')
     effective=values(candidate)
-    changed={k for k in before.keys()|effective.keys() if before.get(k)!=effective.get(k)}
+    changed=changed_settings(before,effective)
     if not changed:return target
     mode_changed=before.get('OPERATION_MODE','normal')!=mode
-    policy_changed=any(k.startswith('SERVICE_ALLOW_') for k in changed)
+    policy_keys={k for k in changed if k.startswith('SERVICE_ALLOW_') and any(
+        k=='SERVICE_ALLOW_'+row['key'] and any(allowed(unit,before)!=allowed(unit,effective) for unit in row['units']) for row in CATALOG)}
+    policy_changed=bool(policy_keys)
     analysis_keys={'MODEL','CONFIDENCE','SENSITIVITY','SF_THRESH','DATA_MODEL_VERSION',
                    'PRIVACY_THRESHOLD','GEO_MODEL','LATITUDE','LONGITUDE','DATABASE_LANG',
                    'OVERLAP','RECORDING_LENGTH','EXTRACTION_LENGTH','AUDIOFMT','RAW_SPECTROGRAM'}
-    analysis_keys.update(analysis_backend.KEYS)
-    analysis_change=mode_changed or 'SERVICE_ALLOW_ANALYSIS' in changed or bool(changed&analysis_keys) or any(k.startswith(('APPRISE_','BIRDWEATHER')) for k in changed)
-    analysis_active=active('birdnet_analysis')
+    analysis_keys.update({'ANALYSIS_BACKEND'})
+    if effective.get('ANALYSIS_BACKEND','local')=='remote':analysis_keys.add('REMOTE_ANALYSIS_IP')
+    analysis_change=mode_changed or 'SERVICE_ALLOW_ANALYSIS' in changed or bool(changed&(analysis_keys-HOT_KEYS))
+    analysis_active=analysis_change and active('birdnet_analysis')
     try:
         paused_recording=json.loads(PAUSE_MARKER.read_text()).get('resume',False)
     except (FileNotFoundError,ValueError):
         paused_recording=False
-    recording_active=active('birdnet_recording') or paused_recording
+    recording_active=(restart_recording or mode_changed) and (active('birdnet_recording') or paused_recording)
     restart_recording=restart_recording and recording_active
     start_analysis=allowed('birdnet_analysis.service', effective) and (analysis_active or (mode_changed and recording_active) or policy_changed)
     touch_analysis=analysis_change and (analysis_active or start_analysis)
-    manual_active=active('birdnet-archive-analysis') and (analysis_change or restart_recording)
+    manual_active=(analysis_change or restart_recording) and active('birdnet-archive-analysis')
     if manual_active:
         if restart_recording and paused_recording:
             from archive_recording_pause import cancel
@@ -166,7 +197,8 @@ def apply(candidate):
         if restart_recording: recording_service('stop')
         atomic(CONFIG, candidate)
         if mode=='normal' and changed&{'MODEL','DATABASE_LANG'}:labels()
-        if mode_changed or policy_changed:enforce_services()
+        if mode_changed:enforce_services()
+        elif policy_changed:enforce_services(policy_keys)
         if restart_recording and allowed('birdnet_recording.service', effective): recording_service('start')
         if mode=='archive' and restart_recording and allowed('birdnet_recording.service', effective):
             await_archive(int(after.get('RECORDING_LENGTH','15'))+120)
@@ -175,14 +207,16 @@ def apply(candidate):
             # Readiness is published on the first input file. With capture
             # explicitly prohibited the analyzer may legitimately wait idle.
             if allowed('birdnet_recording.service', effective):await_ready(target)
-        profiles[target] = {k: v for k, v in values(candidate).items() if k in KEYS}
-        atomic(STATE, json.dumps(profiles, indent=2) + '\n')
-        if manual_active and backend_changed and mode=='archive' and allowed('birdnet-archive-analysis.service',effective):manual_service('start')
+        if changed & (set(KEYS)|{'MODEL'}):
+            profiles[target] = {k: v for k, v in values(candidate).items() if k in KEYS}
+            atomic(STATE, json.dumps(profiles, indent=2) + '\n')
+        if manual_active and mode=='archive' and allowed('birdnet-archive-analysis.service',effective):manual_service('start')
     except BaseException as exc:
         if touch_analysis:service('stop')
         if restart_recording: recording_service('stop')
         atomic(CONFIG, previous)
-        if mode_changed or policy_changed:enforce_services()
+        if mode_changed:enforce_services()
+        elif policy_changed:enforce_services(policy_keys)
         if restart_recording: recording_service('start')
         try:
             if before.get('OPERATION_MODE','normal')=='archive' and restart_recording:
@@ -198,7 +232,11 @@ def apply(candidate):
     return target
 
 
-def enforce_services():
+def enforce_services(changed=None):
+    if changed is not None:
+        policy=Path(__file__).with_name('birdnet_service_policy.py')
+        subprocess.run(['/usr/bin/python3',str(policy),'apply',*sorted(k for k in changed if k.startswith('SERVICE_ALLOW_'))],check=True,timeout=120)
+        return
     guard=Path('/usr/local/libexec/birdnet_minimal_services.py')
     if guard.is_file():
         subprocess.run(['/usr/bin/python3',str(guard)],check=True,timeout=180)

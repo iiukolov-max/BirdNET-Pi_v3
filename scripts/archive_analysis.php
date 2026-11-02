@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
   if ($code!==0) {http_response_code(500);echo json_encode(array('error'=>implode("\n",$output)));exit;}
 } elseif ($_SERVER['REQUEST_METHOD']!=='GET') {http_response_code(405);exit;}
 $command='sudo -u '.escapeshellarg(get_user()).' /usr/bin/python3 '.escapeshellarg(get_home().'/BirdNET-Pi/scripts/archive_analysis.py').' status';
+if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 exec($command.' 2>/dev/null',$outputStatus,$code);
 if ($code!==0) {http_response_code(500);echo json_encode(array('error'=>$labels['error']));exit;}
 echo implode("\n",$outputStatus);
