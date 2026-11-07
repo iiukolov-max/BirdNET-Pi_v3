@@ -1,44 +1,99 @@
 {
-  "schema_version": 1,
-  "release": "v2.17.1.post2",
-  "wheel": {
-    "name": "birdnet_tflite_runtime-2.17.1.post2-cp313-cp313-linux_aarch64.whl",
-    "bytes": 2673389,
-    "sha256": "2edcbcf9fc07232d76e5184021e45af52db58a4523959fd43119e0966907fd46",
-    "url": "https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/download/v2.17.1.post2/birdnet_tflite_runtime-2.17.1.post2-cp313-cp313-linux_aarch64.whl"
-  },
-  "model": {
-    "name": "BirdNET_V3_full_FP32_weight_storage.tflite",
-    "bytes": 140529972,
-    "sha256": "a85fb65102ca3abe59e33f629216610879bd77a4809e9011f200bf4b49703f6b",
-    "compressed": {
-      "name": "BirdNET_V3_full_FP32_weight_storage.tflite.gz",
-      "bytes": 81887598,
-      "sha256": "347aa630b3404003b84fb58b5c6ac638baa27a544a66083f57b0ffb96e907307",
-      "url": "https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/download/v2.17.1.post2/BirdNET_V3_full_FP32_weight_storage.tflite.gz"
+  "schema_version": 2,
+  "release": "v2.17.1.post3",
+  "profiles": [
+    {
+      "schema_version": 1,
+      "release": "v2.17.1.post3",
+      "wheel": {
+        "name": "birdnet_tflite_runtime-2.17.1.post3-cp313-cp313-linux_aarch64.whl",
+        "bytes": 2682829,
+        "sha256": "00bf4a8b6d59a5c5dc0ef34823807cb28004e6798bbb0426cb11c55e009e1ae4",
+        "url": "https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/download/v2.17.1.post3/birdnet_tflite_runtime-2.17.1.post3-cp313-cp313-linux_aarch64.whl"
+      },
+      "model": {
+        "name": "BirdNET_V3_full_FP32_weight_storage.tflite",
+        "bytes": 140529972,
+        "sha256": "a85fb65102ca3abe59e33f629216610879bd77a4809e9011f200bf4b49703f6b",
+        "compressed": {
+          "name": "BirdNET_V3_full_FP32_weight_storage.tflite.gz",
+          "bytes": 81887598,
+          "sha256": "347aa630b3404003b84fb58b5c6ac638baa27a544a66083f57b0ffb96e907307",
+          "url": "https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/download/v2.17.1.post3/BirdNET_V3_full_FP32_weight_storage.tflite.gz"
+        }
+      },
+      "original_model_sha256": "f4af6290690e0031cd785d4c810167af83467ce1426f4eba249ca994681000db",
+      "runtime_sha256": "150a5758b8ffdecef42d5030d91954770dd8aa717783ed857cb5ba8566278dcb",
+      "supported": {
+        "machine": "aarch64",
+        "python": [
+          3,
+          13
+        ],
+        "os_codename": "trixie",
+        "device_contains": "Raspberry Pi Zero 2",
+        "glibc_min": [
+          2,
+          41
+        ],
+        "numpy_major": 2
+      },
+      "unified_runtime": true,
+      "compat_wheel": {
+        "name": "tflite_runtime-2.17.1.post3-py3-none-any.whl",
+        "bytes": 1671,
+        "sha256": "fb5c807f6c26815ab42a13eeade0d0ebeac603f8bcd8b277e5679dece0aaffff",
+        "url": "https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/download/v2.17.1.post3/tflite_runtime-2.17.1.post3-py3-none-any.whl"
+      },
+      "platform_id": "trixie-arm64-cp313"
+    },
+    {
+      "schema_version": 1,
+      "release": "v2.17.1.post3",
+      "wheel": {
+        "name": "birdnet_tflite_runtime-2.17.1.post3-cp311-cp311-linux_aarch64.whl",
+        "bytes": 2688663,
+        "sha256": "42b8a7acc18b97c8a9e1878c65e39c991753d6f72f88a7109c273a745f08dbbc",
+        "url": "https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/download/v2.17.1.post3/birdnet_tflite_runtime-2.17.1.post3-cp311-cp311-linux_aarch64.whl"
+      },
+      "model": {
+        "name": "BirdNET_V3_full_FP32_weight_storage.tflite",
+        "bytes": 140529972,
+        "sha256": "a85fb65102ca3abe59e33f629216610879bd77a4809e9011f200bf4b49703f6b",
+        "compressed": {
+          "name": "BirdNET_V3_full_FP32_weight_storage.tflite.gz",
+          "bytes": 81887598,
+          "sha256": "347aa630b3404003b84fb58b5c6ac638baa27a544a66083f57b0ffb96e907307",
+          "url": "https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/download/v2.17.1.post3/BirdNET_V3_full_FP32_weight_storage.tflite.gz"
+        }
+      },
+      "original_model_sha256": "f4af6290690e0031cd785d4c810167af83467ce1426f4eba249ca994681000db",
+      "runtime_sha256": "3c14dd01908f8db7c043e5d8f94d7357c53d2b3f107f1617d4b2653338aef58f",
+      "supported": {
+        "machine": "aarch64",
+        "python": [
+          3,
+          11
+        ],
+        "os_codename": "bookworm",
+        "device_contains": "Raspberry Pi Zero 2",
+        "glibc_min": [
+          2,
+          36
+        ],
+        "numpy_major": [
+          1,
+          2
+        ]
+      },
+      "unified_runtime": true,
+      "compat_wheel": {
+        "name": "tflite_runtime-2.17.1.post3-py3-none-any.whl",
+        "bytes": 1671,
+        "sha256": "fb5c807f6c26815ab42a13eeade0d0ebeac603f8bcd8b277e5679dece0aaffff",
+        "url": "https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/download/v2.17.1.post3/tflite_runtime-2.17.1.post3-py3-none-any.whl"
+      },
+      "platform_id": "bookworm-arm64-cp311"
     }
-  },
-  "original_model_sha256": "f4af6290690e0031cd785d4c810167af83467ce1426f4eba249ca994681000db",
-  "runtime_sha256": "150a5758b8ffdecef42d5030d91954770dd8aa717783ed857cb5ba8566278dcb",
-  "supported": {
-    "machine": "aarch64",
-    "python": [
-      3,
-      13
-    ],
-    "os_codename": "trixie",
-    "device_contains": "Raspberry Pi Zero 2",
-    "glibc_min": [
-      2,
-      41
-    ],
-    "numpy_major": 2
-  },
-  "unified_runtime": true,
-  "compat_wheel": {
-    "name": "tflite_runtime-2.17.1.post2-py3-none-any.whl",
-    "bytes": 1712,
-    "sha256": "a099e05b23116ce883590cc144a613273b0ae35d6aa4713c172dcdc705e7b273",
-    "url": "https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/download/v2.17.1.post2/tflite_runtime-2.17.1.post2-py3-none-any.whl"
-  }
+  ]
 }

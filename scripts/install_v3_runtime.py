@@ -82,7 +82,21 @@ def compatible(supported):
     libc,version=platform.libc_ver()
     if libc!='glibc' or tuple(int(n) for n in version.split('.')[:2])<tuple(supported['glibc_min']):return False
     import numpy as np
-    return int(np.__version__.split('.')[0])==supported['numpy_major']
+    majors=supported['numpy_major']
+    return int(np.__version__.split('.')[0]) in (majors if isinstance(majors,list) else [majors])
+
+def select_manifest(document,predicate=None):
+    predicate=compatible if predicate is None else predicate
+    schema=document.get('schema_version')
+    if schema==1:profiles=[document]
+    elif schema==2:
+        profiles=document.get('profiles')
+        if not isinstance(profiles,list) or not profiles:raise ValueError('Empty runtime matrix')
+        if any(p.get('schema_version')!=1 for p in profiles):raise ValueError('Invalid runtime matrix entry')
+    else:raise ValueError('Unknown runtime manifest')
+    matches=[p for p in profiles if predicate(p['supported'])]
+    if len(matches)>1:raise ValueError('Ambiguous runtime profiles')
+    return matches[0] if matches else None
 
 def artifact(entry,folder,assets):
     name=entry['name']
@@ -196,19 +210,20 @@ def check_models(args,stage,canonical=False):
     return results
 
 def install(args):
-    manifest=json.loads(args.manifest.read_text())
-    if manifest.get('schema_version')!=1:raise ValueError('Unknown runtime manifest')
-    if not compatible(manifest['supported']):
+    manifest=select_manifest(json.loads(args.manifest.read_text()))
+    if manifest is None:
         emit('v3_runtime_skipped',reason='No qualified package for this device/OS/Python/NumPy; original runtime retained')
         return
     if os.geteuid()!=0:raise RuntimeError('Run installer with sudo and the BirdNET Python interpreter')
-    root=args.root.resolve();parent=root/'runtime';parent.mkdir(exist_ok=True)
+    root=args.root.resolve();parent=root/'runtime';parent.mkdir(exist_ok=True);os.chmod(parent,0o755)
     with (parent/'install.lock').open('w') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         previous=json.loads(args.profile.read_text()) if args.profile.exists() else {}
         original=root/'model/BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned.tflite'
         if digest(original)!=manifest['original_model_sha256']:raise ValueError('Original V3 model checksum mismatch')
-        if not args.force and previous.get('release')==manifest['release']:
+        if (not args.force and previous.get('release')==manifest['release']
+                and previous.get('runtime_sha256')==manifest['runtime_sha256']
+                and previous.get('python')==list(sys.version_info[:2])):
             artifacts=previous.get('artifacts',{})
             bridge_ready=True
             if manifest.get('unified_runtime'):
@@ -236,6 +251,11 @@ def install(args):
             bridge=artifact(manifest['compat_wheel'],stage,args.assets_dir)
             subprocess.run([str(args.python),'-m','pip','install','--no-index','--no-deps','--no-compile',
                             '--target',str(stage),str(bridge)],check=True,timeout=180)
+        # Native packages are public release files; root's private umask must
+        # not prevent the analysis user from importing Python or metadata.
+        for path in stage.rglob('*'):
+            if path.is_dir():os.chmod(path,0o755)
+            elif path.is_file():os.chmod(path,0o644)
         package=stage/'birdnet_tflite_cached'
         if digest(package/'_pywrap_tensorflow_interpreter_wrapper.so')!=manifest['runtime_sha256']:raise ValueError('Runtime binary checksum mismatch')
         import numpy as np
@@ -258,7 +278,7 @@ def install(args):
             os.chmod(cache,0o644)
             tracked=[model,cache,*[p for p in package.iterdir() if p.suffix in ('.py','.so')]]
             if manifest.get('unified_runtime'):tracked.extend((stage/'tflite_runtime').glob('*.py'))
-            profile={'enabled':previous.get('enabled',True),'release':manifest['release'],'machine':'aarch64','python':[3,13],
+            profile={'enabled':previous.get('enabled',True),'release':manifest['release'],'machine':manifest['supported']['machine'],'python':list(sys.version_info[:2]),
                      'original_model_sha256':manifest['original_model_sha256'],
                      'runtime_dir':str(stage),'model':str(model),'cache':str(cache),'installed':time.time(),
                      'artifacts':{str(p):digest(p) for p in tracked},'validation':'4x11560 bit-exact original/cold-cache/reloaded-cache'}

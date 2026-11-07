@@ -1,5 +1,12 @@
 # Updates, fork migration and recovery
 
+Preview 10 selects the separate Bookworm/Python 3.11 or Trixie/Python 3.13
+optimized TFLite package from a pinned runtime matrix. See
+[TFLite runtime compatibility](TFLITE_RUNTIME.md). Earlier release tags remain
+pinned to their earlier runtime. The Bookworm native component is checked in
+isolated userspace; a complete fresh Bookworm installation is not certified by
+that check.
+
 This candidate has been checked with local Git and SQLite fixtures. Privileged service changes, dependency installation and model loading were simulated in those tests. A full device upgrade and a fresh hardware installation remain untested. Keep an existing card available for playback; use a separate card for installation testing.
 
 ## Fresh installation versus migration

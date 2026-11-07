@@ -11,6 +11,28 @@ spec=importlib.util.spec_from_file_location('runtime_installer',path)
 installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(installer)
 
 class RuntimeInstallerTests(unittest.TestCase):
+    def test_matrix_selects_correct_os_and_python(self):
+        trixie={'schema_version':1,'supported':{'os_codename':'trixie','python':[3,13]},'wheel':{'name':'cp313.whl'}}
+        bookworm={'schema_version':1,'supported':{'os_codename':'bookworm','python':[3,11]},'wheel':{'name':'cp311.whl'}}
+        matrix={'schema_version':2,'profiles':[trixie,bookworm]}
+        for os_name,version,expected in [('trixie',[3,13],trixie),('bookworm',[3,11],bookworm),('bookworm',[3,13],None),('trixie',[3,12],None)]:
+            with self.subTest(os=os_name,python=version):
+                actual=installer.select_manifest(matrix,lambda p:p['os_codename']==os_name and p['python']==version)
+                self.assertEqual(actual,expected)
+
+    def test_ambiguous_and_empty_matrix_rejected(self):
+        profile={'schema_version':1,'supported':{}}
+        with self.assertRaisesRegex(ValueError,'Ambiguous'):
+            installer.select_manifest({'schema_version':2,'profiles':[profile,profile]},lambda _:True)
+        with self.assertRaises(ValueError):installer.select_manifest({'schema_version':2,'profiles':[]})
+
+    def test_unsupported_matrix_does_not_touch_profile(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);profile=root/'profile.json';profile.write_text('{"enabled":false}')
+            manifest=root/'manifest.json';manifest.write_text(json.dumps({'schema_version':2,'profiles':[{'schema_version':1,'supported':{}}]}))
+            with mock.patch.object(installer,'compatible',return_value=False):installer.install(mock.Mock(manifest=manifest,profile=profile))
+            self.assertEqual(profile.read_text(),'{"enabled":false}')
+
     def test_v2_v3_rounding_is_rejected(self):
         import numpy as np
         with tempfile.TemporaryDirectory() as folder:

@@ -2,7 +2,7 @@
 
 Local acoustic monitoring based on [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), with BirdNET+ V3 Preview, recording modes and manual detection review.
 
-**Current release:** [v3-preview.9](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases/tag/v3-preview.9) · [Release notes](RELEASE_NOTES.md) · [Published releases](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases)
+**Current release:** [v3-preview.10](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases/tag/v3-preview.10) · [Release notes](RELEASE_NOTES.md) · [Published releases](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases)
 
 ## Features
 
@@ -22,7 +22,7 @@ Orange Pi support was contributed and hardware-tested by [miketimofeev](https://
 Install the latest published preview:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.9/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.9 bash birdnet-install.sh
+curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.10/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.10 bash birdnet-install.sh
 ```
 
 For **Raspberry Pi Zero 2 W without a display or camera**, add `--zero2-headless` to the installer command. This Raspberry Pi profile backs up boot settings, applies `cma=0` and `gpu_mem=16`, disables graphics/camera and adds 1 GiB disk swap while retaining zram. Do not select this profile for Orange Pi.
@@ -30,6 +30,8 @@ For **Raspberry Pi Zero 2 W without a display or camera**, add `--zero2-headless
 After successful installation, run `sudo reboot` and open `http://<device-hostname>.local` or the device's IP address. Check location, audio format and recording length in **Tools → Settings**. Confirm that recording and analysis work. Installation downloads dependencies and checksum-verified model files; recognition then runs locally.
 
 The fresh installer refuses an existing installation. See [updates and recovery](docs/UPDATES_AND_RECOVERY.md) for updates, and [Trixie setup](docs/TRIXIE_INSTALLATION.md) for Raspberry Pi checks.
+
+The optional [optimized TFLite runtime](docs/TFLITE_RUNTIME.md) has separate ARM64 packages for Bookworm/Python 3.11 and Trixie/Python 3.13. Bookworm native-component checks do not establish a complete Bookworm installation test.
 
 ## Validation and limitations
 

@@ -1,3 +1,12 @@
+# BirdNET-Pi V3 - Preview 10
+
+Released: 2026-11-07.
+
+- Select optimized TFLite v2.17.1.post3 for Bookworm/Python 3.11 or Trixie/Python 3.13 on qualified ARM64 Zero 2 W targets.
+- Preserve checksum/model/cache checks and the single-library import bridge; ensure runtime files remain readable when installation starts with a private root umask.
+
+Bookworm checks use isolated Debian Bookworm userspace on real ARM64 hardware, not a fresh Bookworm installation. Earlier models and the full V3 taxonomy remain supported. See [runtime compatibility](docs/TFLITE_RUNTIME.md) and the linked runtime validation report.
+
 # BirdNET-Pi V3 - Preview 9
 
 Released: 2026-11-02.
