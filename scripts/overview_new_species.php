@@ -4,18 +4,18 @@ function get_overview_new_species($db, $today = null) {
   // Today and the preceding 30 calendar days form an inclusive 31-day window.
   $window_start = (new DateTimeImmutable($today))->modify('-30 days')->format('Y-m-d');
   $lists = [];
-  foreach (['all' => '', 'month' => 'WHERE species.first_seen >= :window_start'] as $key => $filter) {
+  foreach (['all' => '', 'month' => 'AND Date >= :window_start'] as $key => $filter) {
     $query = $db->prepare("WITH species AS (
       SELECT Sci_Name,
              MIN(Date || ' ' || Time) AS first_seen,
              MAX(Date || ' ' || Time) AS last_seen
-      FROM detections WHERE Date <= :today GROUP BY Sci_Name
+      FROM detections WHERE Date <= :today $filter GROUP BY Sci_Name
     ) SELECT species.*, latest.Com_Name, latest.Confidence, latest.File_Name
       FROM species JOIN detections latest ON latest.rowid = (
         SELECT d.rowid FROM detections d
         WHERE d.Sci_Name = species.Sci_Name AND d.Date || ' ' || d.Time = species.last_seen
         ORDER BY d.Confidence DESC, d.File_Name ASC LIMIT 1
-      ) $filter ORDER BY species.first_seen DESC, species.Sci_Name ASC LIMIT 10");
+      ) ORDER BY species.first_seen DESC, species.Sci_Name ASC LIMIT 10");
     if (!$query) throw new RuntimeException('Cannot prepare new species list');
     $query->bindValue(':today', $today, SQLITE3_TEXT);
     if ($key === 'month') $query->bindValue(':window_start', $window_start, SQLITE3_TEXT);

@@ -1,3 +1,12 @@
+# BirdNET-Pi V3 - Preview 11
+
+Released: 2026-11-08.
+
+- Correct Overview / New species / Last month: calculate the first appearance within the last 31 calendar days before sorting, including species already seen before this period.
+- Include today and the preceding 30 days; exclude future observations. Keep the all-time list unchanged.
+
+Validated with SQLite fixtures covering returning species, ordering and date boundaries. PHP syntax and a live database read were checked on the test Raspberry Pi. A fresh SD installation was not repeated for this patch. Includes Preview 10 Bookworm/Trixie runtime support.
+
 # BirdNET-Pi V3 - Preview 10
 
 Released: 2026-11-07.
@@ -54,7 +63,7 @@ Runtime: https://github.com/iiukolov-max/birdnet-tflite-runtime/releases/tag/v2.
 
 Return to the original backend: `sudo birdnet/bin/python3 scripts/v3_runtime_control.py disable`; the change applies at the next model load. Use `enable` to restore the optimized profile.
 
-# BirdNET-Pi V3 — Preview 4
+# BirdNET-Pi V3 вЂ” Preview 4
 
 Released: 2026-10-09. Reliability, SQLite and Economy Charts.
 
@@ -73,11 +82,11 @@ Adapted ideas from Nachtzuster/BirdNET-Pi PRs [#653](https://github.com/Nachtzus
 ## Frozen Economy analysis profile
 
 - Keep full V3 with two inference threads for Economy archive analysis; set the thread count explicitly in the installed archive service. Normal and fresh-install model/service selections are preserved.
-- Economy CPU recovery now permits a higher frequency after 30 seconds at or below 76°C, instead of requiring 74°C. The 78°C reduction threshold and original hardware frequency ceiling remain unchanged. This addresses remaining at a reduced clock while the device is warm.
+- Economy CPU recovery now permits a higher frequency after 30 seconds at or below 76В°C, instead of requiring 74В°C. The 78В°C reduction threshold and original hardware frequency ceiling remain unchanged. This addresses remaining at a reduced clock while the device is warm.
 - CPU status reads the archive service thread override instead of reporting a fixed count.
 - Normalize recording-mode installer line endings to LF. See [the frozen profile and measurements](docs/ECONOMY_ANALYSIS_PROFILE.md).
 
-# BirdNET-Pi V3 — Preview 3
+# BirdNET-Pi V3 вЂ” Preview 3
 
 Released: 2026-10-08. This preview combines the accepted Orange Pi contribution with recording, analysis, settings and Overview changes.
 
@@ -103,7 +112,7 @@ Our regression and reboot checks were performed on Raspberry Pi. Additional Prev
 - Fresh-install defaults are Normal, acoustic V3, geographic V3.0.4 and all optional permissions enabled. Existing settings are preserved.
 - Geographic V3 filtering matches names and uses the 48-period seasonal calendar. Earlier geographic filtering and Off remain selectable for V3.
 - Settings save in the background, restart affected services selectively and roll back failed mode/model transactions. Unchanged saves preserve ongoing recording and manual analysis.
-- Tools → Services separates automatic BirdNET Analysis from manual Archive Analysis. The archive explanation is centered.
+- Tools в†’ Services separates automatic BirdNET Analysis from manual Archive Analysis. The archive explanation is centered.
 - Clear all data stops recording and analysis before deleting audio and spectrogram data; the database and settings are retained.
 
 ## Overview and diagnostics
@@ -124,7 +133,7 @@ A live archive run completed 60 of 60 thirty-second FLAC files without failures,
 This remains a preview. A fully uninterrupted fresh installation of the final source, a complete existing-device upgrade, attached RTC operation and long-term endurance remain unverified. V3 has no human-voice filter; sensitivity is fixed at 1.0 and species absent from the geographic model remain unrestricted. Audio capture is paused during manual analysis.
 
 ---
-# BirdNET-Pi V3 — Preview 2
+# BirdNET-Pi V3 вЂ” Preview 2
 
 This fork adds local BirdNET+ V3 Preview recognition and manual verification while retaining the earlier BirdNET models in Settings. This preview includes fixes from a clean Raspberry Pi OS Lite 64-bit Debian Trixie installation on Raspberry Pi Zero 2 W.
 
@@ -138,7 +147,7 @@ This fork adds local BirdNET+ V3 Preview recognition and manual verification whi
 - Expanded label coverage for birds, mammals, insects and amphibians, with smaller groups of other labels. Model coverage and accuracy depend on the species and recording; this is a developer preview.
 - Local audio processing optimisations using SoundFile/soxr, stereo-to-mono processing, top-k selection and configurable V3 inference threads.
 - Manual TP/FP marks, changing or removing marks, authenticated POST and CSRF protection.
-- Tools → System Controls generation/download of `BirdDB_verified.txt`, including **all detections** and review columns. The existing exporter is unchanged.
+- Tools в†’ System Controls generation/download of `BirdDB_verified.txt`, including **all detections** and review columns. The existing exporter is unchanged.
 - Pinned, separately downloaded V3 model and labels with size/SHA-256 verification.
 - Fresh installer that refuses an existing installation, requires user `pi`, uses this fork and leaves reboot to the operator.
 - Update source `iiukolov-max/BirdNET-Pi_v3`, private backups, fast-forward updates, refusal of local changes/diverged history and inference readiness checks.
