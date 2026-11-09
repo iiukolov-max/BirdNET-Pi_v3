@@ -1,12 +1,31 @@
 #!/usr/bin/env python3
-"""Find an ALSA capture device and maximise capture controls; stdout is the PCM name."""
+"""Discover capture hardware; change its gain only when enabled in BirdNET settings."""
 import argparse
 import json
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 import time
+
+CONFIG = Path('/etc/birdnet/birdnet.conf')
+
+
+def gain_enabled():
+    """An absent/unreadable setting is off; never execute the shell configuration."""
+    try:
+        values = re.findall(r'^\s*MICROPHONE_GAIN_100\s*=(.*)$', CONFIG.read_text(), re.M)
+        return bool(values) and shlex.split(values[-1], comments=True) == ['1']
+    except (OSError, ValueError) as error:
+        log('microphone_gain_config_error', error=str(error))
+        return False
+
+
+def maximise_devices(devices):
+    # A card can expose several capture PCM devices sharing the same mixer.
+    for card in dict.fromkeys(item['id'] for item in devices):
+        maximise_capture(card)
 
 
 def run(args, timeout=10):
@@ -83,7 +102,7 @@ def maximise_capture(card):
         log("microphone_no_adjustable_capture_controls", card=card)
 
 
-def select_pulse_source(card):
+def select_pulse_source(card, maximise=False):
     source = None
     for attempt in range(3):
         code, output, error = run(["pactl", "--format=json", "list", "sources"], timeout=30)
@@ -104,7 +123,11 @@ def select_pulse_source(card):
     if source is None:
         log("microphone_pulse_source_missing", card=card["id"])
         return False
-    for args in (["pactl", "set-default-source", source], ["pactl", "suspend-source", source, "0"], ["pactl", "set-source-mute", source, "0"]):
+    commands = [["pactl", "set-default-source", source], ["pactl", "suspend-source", source, "0"]]
+    if maximise:
+        commands.extend([["pactl", "set-source-volume", source, "100%"],
+                         ["pactl", "set-source-mute", source, "0"]])
+    for args in commands:
         code, _, error = run(args)
         if code:
             log("microphone_pulse_error", error=error.strip())
@@ -117,7 +140,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", default="default")
     parser.add_argument("--pulse", action="store_true", help="Use shared PulseAudio capture for auto-selected hardware")
+    parser.add_argument("--apply-gain", action="store_true", help="Boot task: apply enabled capture gain to every detected card, without starting recording")
     args = parser.parse_args()
+    maximise = gain_enabled()
+    if args.apply_gain and not maximise:
+        log('microphone_gain_disabled')
+        return 0
     configured = args.device.strip()
     if args.pulse and needs_pulse(configured):ensure_pulse()
     devices=[]
@@ -128,14 +156,17 @@ def main():
         if attempt<4:time.sleep(1)
     if not devices:
         log("microphone_not_found", error=error.strip())
-        return 1
+        return 0 if args.apply_gain else 1
+    if args.apply_gain:
+        maximise_devices(devices)
+        return 0
     if configured in ("", "default", "auto"):
         devices.sort(key=lambda item: ("usb" not in str(Path(
             "/sys/class/sound/card" + str(item["number"])).resolve()).lower(), item["number"], item["device"]))
         selected = devices[0]
         pcm = "plughw:CARD={id},DEV={device}".format(**selected)
         if args.pulse:
-            if not select_pulse_source(selected):
+            if not select_pulse_source(selected, maximise=maximise):
                 return 1
             pcm = "pulse"
     else:
@@ -143,6 +174,8 @@ def main():
         if not match:
             log("microphone_custom_pcm", device=configured,
                 message="Custom ALSA PCM retained; hardware gain cannot be determined automatically")
+            if maximise:
+                maximise_devices(devices)
             print(configured)
             return 0
         selected = next((item for item in devices if match.group(1) in
@@ -153,7 +186,8 @@ def main():
         pcm = configured
         release_idle_pulse_source(selected)
     log("microphone_selected", pcm=pcm, hardware=selected, available=devices)
-    maximise_capture(selected["id"])
+    if maximise:
+        maximise_devices(devices)
     print(pcm, flush=True)
     return 0
 

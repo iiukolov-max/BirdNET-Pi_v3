@@ -72,9 +72,22 @@ device name for direct ALSA use. An explicit `hw` or
 `plughw` selection is retained. Other custom PCM names are retained without
 guessing their underlying hardware mixer. RTSP recording skips hardware setup.
 
-Only controls advertising capture volume or capture switch capabilities are
-changed: capture level is set to 100% and capture is unmuted. Playback controls
-are left alone. Some microphones have fixed gain; their lack of adjustable
+Advanced Settings → Audio Settings includes **Set microphone levels to 100% at every boot**
+(`MICROPHONE_GAIN_100=1`). It is off by default, including on upgrades without this key.
+Only when enabled, adjustable capture controls on every detected ALSA capture card
+are set to 100% and unmuted; the selected PulseAudio input is also set to 100% and
+unmuted when local recording starts. Playback controls are preserved. Turning the
+option off preserves current levels and mute; it does not restore earlier values.
+
+The enabled `birdnet-microphone-gain.service` reads the saved option on every boot,
+after ALSA state restoration and before the recording service. It runs independently
+of the recording mode or whether recording is enabled. When the option is off,
+the boot task exits before hardware discovery or mixer commands. A missing device
+is logged without failing boot. Local recording startup also reads the option and
+repeats setup, covering devices detected after the boot task. Saving a changed
+option restarts active recording and live audio through the settings transaction.
+Custom PCM selection is retained; the opt-in gain task still handles detected cards.
+Some microphones have fixed gain; their lack of adjustable
 controls is logged and recording continues. Hardware maximum gain is distinct
 from BirdNET's model sensitivity setting. The recording service retries if a
 microphone is absent, including when it is connected after boot.
@@ -82,5 +95,5 @@ microphone is absent, including when it is connected after boot.
 Inspect detection and mixer results:
 
 ```bash
-sudo journalctl -u birdnet_recording.service -b
+sudo journalctl -u birdnet-microphone-gain.service -u birdnet_recording.service -b
 ```

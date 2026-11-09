@@ -182,6 +182,9 @@ RECS_DIR=$HOME/BirdSongs
 
 REC_CARD=default
 
+## Opt in to 100% microphone capture gain at every boot and recording startup.
+MICROPHONE_GAIN_100=0
+
 ## PROCESSED is the directory where the formerly 'Analyzed' files are moved
 ## after extractions have been made from them. This includes both WAVE and
 ## BirdNET.selection.txt files.

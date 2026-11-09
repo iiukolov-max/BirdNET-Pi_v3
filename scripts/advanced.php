@@ -196,6 +196,11 @@ if (isset($_GET["max_files_species"])) {
     }
   }
 
+  $gain_line = 'MICROPHONE_GAIN_100='.(isset($_GET['microphone_gain_100']) ? '1' : '0');
+  $contents = preg_match('/^MICROPHONE_GAIN_100=/m', $contents)
+    ? preg_replace('/^MICROPHONE_GAIN_100=.*$/m', $gain_line, $contents)
+    : rtrim($contents)."\n".$gain_line."\n";
+
   if(isset($_GET["recording_length"])) {
     $recording_length = $_GET["recording_length"];
     if(strcmp($recording_length,$config['RECORDING_LENGTH']) !== 0) {
@@ -370,6 +375,10 @@ $newconfig = get_config();
       <table class="settingstable"><tr><td>
 
       <h2>Audio Settings</h2>
+      <label for="microphone_gain_100">
+      <input id="microphone_gain_100" name="microphone_gain_100" type="checkbox" value="1" <?php if (($newconfig['MICROPHONE_GAIN_100'] ?? '0') === '1') echo 'checked'; ?> />
+      <?php echo recording_text($recording_ui['microphone_gain_100_label']); ?></label>
+      <p><?php echo recording_text($recording_ui['microphone_gain_100_help']); ?></p><br>
       <label for="rec_card">Audio Card: </label>
       <input name="rec_card" type="text" size="12" value="<?php print($newconfig['REC_CARD']);?>" required/><br>
       Set Audio Card to 'default' to use PulseAudio (always recommended), or an ALSA recognized sound card device from the output of `arecord -L`. Choose the `dsnoop` device if it is available.<br><br>

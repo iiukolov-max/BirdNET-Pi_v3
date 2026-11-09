@@ -1,5 +1,7 @@
 {
   "en": {
+    "microphone_gain_100_label": "Set microphone levels to 100% at every boot",
+    "microphone_gain_100_help": "When enabled, set all detected sound cards’ adjustable capture controls to 100% and unmute capture at every boot and recording startup. Also set the selected PulseAudio input to 100%. Playback volume is preserved. When disabled, existing capture levels and mute are preserved; disabling does not restore earlier levels. Fixed-gain microphones cannot be adjusted.",
     "analysis_location": "Where to analyze recordings",
     "analysis_local": "On this BirdNET-Pi (default)",
     "analysis_remote": "On a remote computer",
@@ -39,6 +41,8 @@
     "recording_paused": "Microphone recording is paused during analysis and will resume automatically."
   },
   "ru": {
+    "microphone_gain_100_label": "Устанавливать уровень микрофонов на 100% при каждой загрузке",
+    "microphone_gain_100_help": "При включении устанавливает 100% и снимает mute у регулируемых входов всех обнаруженных звуковых карт при каждой загрузке и запуске записи. Выбранный вход PulseAudio также устанавливается на 100%. Громкость воспроизведения сохраняется. При выключении уровни и mute не меняются; прежние значения не восстанавливаются. Микрофоны с фиксированным усилением не регулируются.",
     "analysis_location": "Где анализировать записи",
     "analysis_local": "На этом BirdNET-Pi (по умолчанию)",
     "analysis_remote": "На удалённом компьютере",

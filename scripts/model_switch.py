@@ -35,7 +35,8 @@ def values(text):
 
 def changed_settings(before, after):
     defaults = {'OPERATION_MODE':'normal','ARCHIVE_MAX_USED_PERCENT':'85',
-                'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':'','REMOTE_ANALYSIS_BATCH':'10'}
+                'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':'','REMOTE_ANALYSIS_BATCH':'10',
+                'MICROPHONE_GAIN_100':'0'}
     defaults.update({'SERVICE_ALLOW_'+row['key']:str(row['default']) for row in CATALOG})
     return {k for k in before.keys() | after.keys()
             if before.get(k, defaults.get(k)) != after.get(k, defaults.get(k))}
@@ -110,6 +111,8 @@ def apply(candidate):
     before, after = values(previous), values(candidate)
     if not changed_settings(before,after):return after.get('MODEL')
     validate(after)
+    if after.get('MICROPHONE_GAIN_100', '0') not in ('0', '1'):
+        raise ValueError('Invalid microphone gain setting')
     backend_changed=any(before.get(k,{'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':''}[k])!=after.get(k,{'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':''}[k]) for k in ('ANALYSIS_BACKEND','REMOTE_ANALYSIS_IP'))
     analysis_backend.validate(after,check=backend_changed and after.get('ANALYSIS_BACKEND','local')=='remote')
     target = after.get('MODEL')
@@ -124,9 +127,9 @@ def apply(candidate):
         raise ValueError('Invalid archive segment length')
     if mode=='archive' and after.get('RTSP_STREAM','').strip().strip('"'):
         raise ValueError('Archive mode currently supports microphone input only')
-    recording_keys=('OPERATION_MODE','CHANNELS','REC_CARD','RECORDING_LENGTH','RTSP_STREAM','LogLevel_BirdnetRecordingService')
+    recording_keys=('OPERATION_MODE','CHANNELS','REC_CARD','MICROPHONE_GAIN_100','RECORDING_LENGTH','RTSP_STREAM','LogLevel_BirdnetRecordingService')
     if mode=='archive':recording_keys=tuple(k for k in recording_keys if k!='LogLevel_BirdnetRecordingService')
-    defaults={'OPERATION_MODE':'normal','ARCHIVE_MAX_USED_PERCENT':'85','RECORDING_LENGTH':'15'}
+    defaults={'OPERATION_MODE':'normal','ARCHIVE_MAX_USED_PERCENT':'85','RECORDING_LENGTH':'15','MICROPHONE_GAIN_100':'0'}
     restart_recording=any(before.get(k,defaults.get(k))!=after.get(k,defaults.get(k)) for k in recording_keys) or (mode=='archive' and before.get('AUDIOFMT')!=after.get('AUDIOFMT'))
     if mode == before.get('OPERATION_MODE','normal') == 'archive' and changed_settings(before,after) <= {'LogLevel_BirdnetRecordingService'}:
         restart_recording=False  # Python archive capture has no shell logging level.

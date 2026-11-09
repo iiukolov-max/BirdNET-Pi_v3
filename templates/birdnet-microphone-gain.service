@@ -1,0 +1,12 @@
+[Unit]
+Description=Apply optional BirdNET microphone capture level at boot
+After=sound.target alsa-restore.service alsa-state.service
+Before=birdnet_recording.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/bin/prepare_microphone.py --apply-gain
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

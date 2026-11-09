@@ -16,7 +16,7 @@ The current preview release is [v3-preview.2](https://github.com/iiukolov-max/Bi
 
 - The explicit Zero 2 W headless profile adds **1 GiB disk-backed fallback swap**, preserving existing zram. V3 ran out of memory on the tested Trixie device even with `cma=0` and zram alone.
 
-- Local microphone discovery prefers USB when selection is automatic, sets adjustable ALSA capture gain to 100% and unmutes capture while preserving playback volume. Hardware gain is separate from model sensitivity.
+- Local microphone discovery prefers USB when selection is automatic, optionally sets all detected cards’ adjustable ALSA capture gain to 100% and unmutes capture at every boot and recording startup while preserving playback volume (Advanced Settings → Audio Settings; off by default). Hardware gain is separate from model sensitivity.
 
 - Automatic recording and streaming share a PulseAudio input. User audio runtime/D-Bus and startup ordering allow audio to start without an SSH login. Cold-boot discovery retries and sample-based streaming timestamps address pactl timeouts and non-monotonic DTS.
 

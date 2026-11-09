@@ -14,6 +14,28 @@ import settings_external as external
 
 
 class ApplicationTests(TransactionTests):
+    def test_microphone_gain_only_restarts_recording_and_not_analysis(self):
+        for mode in ('normal', 'archive'):
+            current=switch.replace(self.old,'OPERATION_MODE',mode)
+            self.config.write_text(current)
+            with patch.object(switch,'recording_service') as recording, \
+                    patch.object(switch,'service') as analysis, patch.object(switch,'await_archive'):
+                switch.apply(switch.replace(current,'MICROPHONE_GAIN_100','1'))
+                self.assertEqual([c.args for c in recording.call_args_list],[('stop',),('start',)])
+                analysis.assert_not_called()
+                self.assertEqual(switch.values(self.config.read_text())['MICROPHONE_GAIN_100'],'1')
+
+    def test_missing_gain_setting_is_off_and_unchanged_save_keeps_services(self):
+        with patch.object(switch,'recording_service') as recording,patch.object(switch,'service') as analysis:
+            switch.apply(switch.replace(self.old,'MICROPHONE_GAIN_100','0'))
+            recording.assert_not_called();analysis.assert_not_called()
+            self.assertEqual(self.config.read_text(),self.old)
+
+    def test_invalid_microphone_gain_is_rejected(self):
+        with self.assertRaisesRegex(ValueError,'Invalid microphone gain'):
+            switch.apply(switch.replace(self.old,'MICROPHONE_GAIN_100','2'))
+        self.assertEqual(self.config.read_text(),self.old)
+
     def test_inactive_archive_permission_is_saved_without_systemctl(self):
         current=switch.replace(self.old,'OPERATION_MODE','archive');self.config.write_text(current)
         with patch.object(switch,'active') as active,patch.object(switch,'enforce_services') as enforce:
@@ -97,7 +119,11 @@ class HotReloadTests(unittest.TestCase):
             path=Path(folder)/'birdnet.conf'
             path.write_text('MODEL=old\nBIRDWEATHER_ID=one\nREMOTE_ANALYSIS_BATCH=10\n')
             before=helpers.get_settings(str(path))
-            path.write_text('MODEL=new\nBIRDWEATHER_ID=two\nREMOTE_ANALYSIS_BATCH=20\n')
+            # Settings transactions replace the file atomically; avoid relying
+            # on timestamp resolution for two same-size writes in one tick.
+            replacement=path.with_suffix('.new')
+            replacement.write_text('MODEL=new\nBIRDWEATHER_ID=two\nREMOTE_ANALYSIS_BATCH=20\n')
+            replacement.replace(path)
             after=helpers.get_settings(str(path))
             self.assertIs(before,after)
             self.assertEqual(after['MODEL'],'old')
