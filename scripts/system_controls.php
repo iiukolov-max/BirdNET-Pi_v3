@@ -7,21 +7,7 @@ require_once "scripts/common.php";
 $user = get_user();
 $home = get_home();
 
-$fetch = shell_exec("sudo -u".$user." git -C ".$home."/BirdNET-Pi fetch 2>&1");
-$str = trim(shell_exec("sudo -u".$user." git -C ".$home."/BirdNET-Pi status"));
-if (preg_match("/behind '.*?' by (\d+) commit(s?)\b/", $str, $matches)) {
-  $num_commits_behind = $matches[1];
-}
-if (preg_match('/\b(\d+)\b and \b(\d+)\b different commits each/', $str, $matches)) {
-    $num1 = (int) $matches[1];
-    $num2 = (int) $matches[2];
-    $num_commits_behind = $num1 + $num2;
-}
-if (stripos($str, "Your branch is up to date") !== false) {
-  $num_commits_behind = '0';
-}
-$_SESSION['behind'] = $num_commits_behind;
-$_SESSION['behind_time'] = time();
+// views.php refreshes the origin/main update count before rendering navigation.
 
 $restore = "cat $home/BirdSongs/restore.log";
 $max_upload_size = floor(disk_free_space("$home/BirdNET-Pi/") / 1.001);
@@ -47,7 +33,7 @@ function update() {
     <button type="submit" name="submit" value="sudo reboot" onclick="return confirm('Are you sure you want to reboot?')">Reboot</button>
   </div>
   <div>
-    <button type="submit" name="submit" id="updatebtn" value="update_birdnet.sh" onclick="return update();">Update <?php if(isset($_SESSION['behind']) && $_SESSION['behind'] != "0" && $_SESSION['behind'] != "with"){?><div class="updatenumber"><?php echo $_SESSION['behind']; ?></div><?php } ?></button>
+    <button type="submit" name="submit" id="updatebtn" value="update_birdnet.sh" onclick="return update();">Update <?php if(isset($_SESSION['behind']) && intval($_SESSION['behind']) > 0){?><div class="updatenumber"><?php echo (int)$_SESSION['behind']; ?></div><?php } ?></button>
   </div>
   <div>
     <button type="submit" name="submit" value="sudo shutdown now" onclick="return confirm('Are you sure you want to shutdown?')">Shutdown</button>

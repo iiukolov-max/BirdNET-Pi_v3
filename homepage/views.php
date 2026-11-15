@@ -15,17 +15,23 @@ set_timezone();
 
 $restore = "cat $home/BirdSongs/restore.log";
 
-if(is_authenticated() && (!isset($_SESSION['behind']) || !isset($_SESSION['behind_time']) || time() > $_SESSION['behind_time'] + 86400)) {
+// Check the fork's main branch, independently of the installed branch/tag or Git locale.
+$update_controls_open = isset($_GET['view']) && $_GET['view'] === 'System Controls';
+if (is_authenticated() && ($update_controls_open || !isset($_SESSION['behind']) || !isset($_SESSION['behind_time']) || time() > $_SESSION['behind_time'] + 900)) {
   $git = 'sudo -u '.escapeshellarg($user).' git -C '.escapeshellarg($home.'/BirdNET-Pi').' ';
   $origin = trim(shell_exec($git.'config --get remote.origin.url 2>/dev/null'));
-  $num_commits_behind = 0;
   if (in_array($origin, ['https://github.com/iiukolov-max/BirdNET-Pi_v3.git', 'https://github.com/iiukolov-max/BirdNET-Pi_v3', 'git@github.com:iiukolov-max/BirdNET-Pi_v3.git'], true)) {
-    // Fetch explicitly from the release channel, including tagged installations.
-    shell_exec($git.'fetch origin '.escapeshellarg('+refs/heads/main:refs/remotes/origin/main').' >/dev/null 2>&1');
-    $count = trim(shell_exec($git.'rev-list --count HEAD..origin/main 2>/dev/null'));
-    if (ctype_digit($count)) $num_commits_behind = (int)$count;
+    $fetch_status = 1;
+    $fetch_output = [];
+    exec('timeout 15s '.$git.'fetch origin '.escapeshellarg('+refs/heads/main:refs/remotes/origin/main').' 2>&1', $fetch_output, $fetch_status);
+    // Keep the last successful count when GitHub is temporarily unavailable.
+    if ($fetch_status === 0) {
+      $count = trim(shell_exec($git.'rev-list --count HEAD..origin/main 2>/dev/null'));
+      if (ctype_digit($count)) $_SESSION['behind'] = (int)$count;
+    }
+  } else {
+    $_SESSION['behind'] = 0;
   }
-  $_SESSION['behind'] = $num_commits_behind;
   $_SESSION['behind_time'] = time();
 }
 if(isset($_SESSION['behind'])&&intval($_SESSION['behind']) >= 99) {?>
@@ -65,7 +71,7 @@ elseif ($config["LONGITUDE"] == "0.000") {
   <button type="submit" name="view" value="Weekly Report" form="views">Weekly Report</button>
   <button type="submit" name="view" value="Recordings" form="views">Recordings</button>
   <button type="submit" name="view" value="View Log" form="views">View Log</button>
-  <button type="submit" name="view" value="Tools" form="views">Tools<?php if(isset($_SESSION['behind']) && intval($_SESSION['behind']) >= 50 && ($config['SILENCE_UPDATE_INDICATOR'] != 1)){ $updatediv = ' <div class="updatenumber">'.$_SESSION["behind"].'</div>'; } else { $updatediv = ""; } echo $updatediv; ?></button>
+  <button type="submit" name="view" value="Tools" form="views">Tools<?php if(isset($_SESSION['behind']) && intval($_SESSION['behind']) > 0 && ($config['SILENCE_UPDATE_INDICATOR'] != 1)){ $updatediv = ' <div class="updatenumber">'.$_SESSION["behind"].'</div>'; } else { $updatediv = ""; } echo $updatediv; ?></button>
   <button type="button" href="javascript:void(0);" class="icon" onclick="myFunction()"><img src="images/menu.png"></button>
 </div>
 </form>
