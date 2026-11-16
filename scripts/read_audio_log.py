@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 
-def load(path):
+def load(path, include_test_events=False):
     records = []
     for source in [*path.parent.glob(path.name + '.*'), path]:
         if not source.is_file():
@@ -26,6 +26,24 @@ def load(path):
                         pass
         except (OSError, UnicodeError, EOFError) as error:
             print(f'{source.name}: {error}', file=sys.stderr)
+    if not include_test_events:
+        identities, first_times = set(), set()
+        for row in records:
+            if row.get('event') != 'diagnostic_test_records_excluded':
+                continue
+            for item in row.get('test_processes', []):
+                if isinstance(item, dict) and isinstance(item.get('pid'), int):
+                    identities.add((item.get('boot_id'), item['pid']))
+            for item in row.get('test_first_times', []):
+                if isinstance(item, dict):
+                    first_times.add((item.get('boot_id'), item.get('time')))
+        def synthetic(row):
+            if row.get('source') != 'prepare_microphone':
+                return False
+            if row.get('event') == 'repeated':
+                return (row.get('boot_id'), row.get('first_time')) in first_times
+            return (row.get('boot_id'), row.get('pid')) in identities
+        records = [row for row in records if not synthetic(row)]
     return sorted(records, key=lambda r: (r['boot_id'], r.get('uptime_seconds', 0), r['time']))
 
 
@@ -74,8 +92,9 @@ def main():
     parser.add_argument('--boot', help='Boot ID or unique prefix')
     parser.add_argument('--since', help='Local ISO timestamp or date')
     parser.add_argument('--json', action='store_true', help='Selected raw JSON records')
+    parser.add_argument('--include-test-events', action='store_true', help='Audit known synthetic events retained in the original log')
     args = parser.parse_args()
-    records = load(args.log_file)
+    records = load(args.log_file, include_test_events=args.include_test_events)
     if args.boot:
         matches = {r['boot_id'] for r in records if r['boot_id'].startswith(args.boot)}
         if len(matches) > 1:

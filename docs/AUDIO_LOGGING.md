@@ -121,3 +121,14 @@ write only sysfs, not the SD card or audio log. The alarm indicates missing
 capture hardware, not microphone quality or presence of bird vocalizations.
 Disable/restore activity indication with `sudo systemctl disable --now
 birdnet-audio-led.service`. No buzzer or speaker is required.
+
+## Audit annotations for synthetic test events
+
+Mocked gain tests patch the durable logger so hardware fixtures never enter the
+production log. If an older test run produced synthetic events, a root-created
+`diagnostic_test_records_excluded` annotation can identify the exact boot/PID
+pairs and synthetic first-event timestamps. The reader excludes those events
+and only their derived repeats from summaries. Real repeat summaries flushed
+by a test process remain visible. Original JSON lines are preserved, including
+rotations; `--include-test-events --json` exposes the complete retained evidence.
+This is an explicit correction, not a reconstruction of hardware history.

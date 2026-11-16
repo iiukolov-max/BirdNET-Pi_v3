@@ -102,6 +102,22 @@ class AudioLogging(unittest.TestCase):
         self.assertEqual(result['segments'],60)
         self.assertEqual(result['quiet_fraction'],.25)
 
+    def test_audit_annotation_excludes_only_known_synthetic_events(self):
+        base=dict(boot_id='a',time='2026-11-16T12:00:00+03:00',source='prepare_microphone')
+        rows=[dict(base,event='microphone_not_found',pid=1),
+              dict(base,event='microphone_selected',pid=2,time='2026-11-16T12:01:00+03:00'),
+              dict(base,event='repeated',pid=2,of='microphone_not_found',count=10,first_time=base['time']),
+              dict(base,event='repeated',pid=3,of='microphone_selected',count=2,first_time='2026-11-16T12:01:00+03:00'),
+              dict(base,event='diagnostic_test_records_excluded',source='startup',
+                   test_processes=[dict(boot_id='a',pid=2)],
+                   test_first_times=[dict(boot_id='a',time='2026-11-16T12:01:00+03:00')])]
+        self.log.write_text(''.join(json.dumps(row)+'\n' for row in rows))
+        self.assertEqual(len(load(self.log,include_test_events=True)),5)
+        filtered=load(self.log)
+        self.assertEqual(len(filtered),3)
+        # A real repeat flushed by the test process remains a real event.
+        self.assertEqual([r['count'] for r in filtered if r['event']=='repeated'],[10])
+
 
 class AudioLevels(unittest.TestCase):
     def test_silence_sine_fullscale_and_odd_chunks(self):
