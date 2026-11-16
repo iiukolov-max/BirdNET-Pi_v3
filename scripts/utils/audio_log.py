@@ -34,6 +34,7 @@ def safe(value):
         return [safe(v) for v in value]
     if isinstance(value, str):
         value = '\n'.join(line for line in value.splitlines() if not re.search(r'serial(?:number| number|=|:)', line, re.I))
+        value = re.sub(r'(?i)\b(?:[0-9a-f]{2}:){5}[0-9a-f]{2}\b', '[mac-redacted]', value)
         return re.sub(r'(alsa_input|alsa_output)\.usb-[^\s\"\']+', r'\1.usb-[redacted]', value)
     return value
 

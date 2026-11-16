@@ -65,10 +65,11 @@ class AudioLogging(unittest.TestCase):
     def test_card_change_gets_new_snapshot_and_serials_redacted(self):
         for signature in ('none','USB'):
             audio_log.emit('microphone_not_found','prepare_microphone',repeat=True,signature=signature,
-                           snapshot=lambda: {'device_serial':'SECRET', 'pulse':'alsa_input.usb-SECRET.mono-fallback'},
+                           snapshot=lambda: {'device_serial':'SECRET', 'mac':'aa:bb:cc:dd:ee:ff', 'pulse':'alsa_input.usb-SECRET.mono-fallback'},
                            **self.options)
         self.assertEqual(len(self.rows()),2)
         self.assertNotIn('SECRET',self.log.read_text())
+        self.assertNotIn('aa:bb:cc:dd:ee:ff',self.log.read_text())
 
     def test_day_without_card_is_below_100k(self):
         for tick in range(0,86400,5):
