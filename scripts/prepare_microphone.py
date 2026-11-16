@@ -16,6 +16,7 @@ from utils.audio_snapshot import snapshot, card_info, read as read_audio
 
 PULSE_DIAGNOSTICS = False
 PULSE_SOURCE = None
+CAPTURE_GAIN = []
 
 CONFIG = Path('/etc/birdnet/birdnet.conf')
 
@@ -109,8 +110,13 @@ def maximise_capture(card):
         if not settings:
             continue  # Never adjust playback volume or unrelated controls.
         code, result, error = run(["amixer", "-c", card, "sset", control, "capture", *settings])
+        readback = None
+        if code == 0 and "cvolume" in capabilities:
+            read_code, final, read_error = run(["amixer", "-c", card, "sget", control], timeout=.65)
+            readback = {"exit_code": read_code, "output": final.strip(), "error": read_error.strip()}
+            CAPTURE_GAIN.append({"card": card, "control": control, **readback})
         log("microphone_capture_control", card=card, control=control,
-            requested=settings, success=code == 0, result=result.strip(), error=error.strip())
+            requested=settings, success=code == 0, result=result.strip(), error=error.strip(), capture_readback=readback)
         if code == 0:
             changed.append(control)
     if not changed:
@@ -154,7 +160,9 @@ def select_pulse_source(card, maximise=False):
 
 
 def main():
-    global PULSE_DIAGNOSTICS
+    global PULSE_DIAGNOSTICS, PULSE_SOURCE
+    PULSE_SOURCE = None
+    CAPTURE_GAIN.clear()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", default="default")
     parser.add_argument("--pulse", action="store_true", help="Use shared PulseAudio capture for auto-selected hardware")
@@ -212,7 +220,7 @@ def main():
     if maximise:
         maximise_devices(devices)
     log("microphone_selected", pcm=pcm, hardware={**selected, **card_info(selected['number'])},
-        pulse_source=PULSE_SOURCE, available=devices)
+        pulse_source=PULSE_SOURCE, available=devices, capture_gain=CAPTURE_GAIN)
     print(pcm, flush=True)
     return 0
 
