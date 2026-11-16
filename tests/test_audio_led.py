@@ -9,6 +9,16 @@ from audio_led_alert import Alert, capture_present
 
 
 class AudioLED(unittest.TestCase):
+    def test_installed_symlink_entrypoints(self):
+        import subprocess
+        scripts=Path(__file__).resolve().parents[1]/'scripts'
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ['prepare_microphone.py','audio_led_alert.py']:
+                link=Path(directory)/name
+                link.symlink_to(scripts/name)
+                result=subprocess.run([sys.executable,str(link),'--help'],capture_output=True,text=True)
+                self.assertEqual(result.returncode,0,result.stderr)
+
     def test_double_flash_timing_and_restore_trigger(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)

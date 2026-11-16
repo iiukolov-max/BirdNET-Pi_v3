@@ -17,6 +17,7 @@ sudo install -m 0644 "$root/templates/80-birdnet-audio.rules" /etc/udev/rules.d/
 for name in birdnet-audio-led.service birdnet-audio-late.service birdnet-audio-late.timer birdnet-audio-rotate.service birdnet-audio-rotate.timer; do
     sudo install -m 0644 "$root/templates/$name" "/etc/systemd/system/$name"
 done
+sudo install -m 0755 "$root/scripts/birdnet_minimal_services.py" /usr/local/libexec/birdnet_minimal_services.py
 sudo systemctl daemon-reload
 sudo udevadm control --reload-rules
 sudo systemctl enable --now birdnet-audio-led.service birdnet-audio-late.timer birdnet-audio-rotate.timer

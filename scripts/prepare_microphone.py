@@ -9,6 +9,8 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from utils.audio_log import emit
 from utils.audio_snapshot import snapshot, card_info, read as read_audio
 
