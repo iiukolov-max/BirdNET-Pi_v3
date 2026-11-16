@@ -1,0 +1,7 @@
+[Unit]
+Description=Bound persistent audio diagnostics size
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/logrotate --state /run/birdnet-audio-root/logrotate.status /etc/logrotate.d/birdnet-audio-log
+UMask=0027

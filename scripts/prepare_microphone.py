@@ -9,6 +9,12 @@ import subprocess
 import sys
 import time
 
+from utils.audio_log import emit
+from utils.audio_snapshot import snapshot, card_info, read as read_audio
+
+PULSE_DIAGNOSTICS = False
+PULSE_SOURCE = None
+
 CONFIG = Path('/etc/birdnet/birdnet.conf')
 
 
@@ -38,6 +44,13 @@ def run(args, timeout=10):
 
 def log(event, **fields):
     print(json.dumps({"event": event, **fields}, ensure_ascii=False), file=sys.stderr, flush=True)
+    failure = event in {'microphone_not_found', 'microphone_configured_device_missing',
+                        'microphone_pulse_source_missing', 'microphone_pulse_error'}
+    durable = {('pulse_source' if k == 'source' else k): v for k, v in fields.items()}
+    emit(event, 'prepare_microphone', repeat=True,
+         lane='' if failure or event == 'microphone_selected' else event + str(fields.get('control', fields.get('card', ''))),
+         snapshot=(lambda: snapshot(PULSE_DIAGNOSTICS)) if failure else None,
+         signature=read_audio('/proc/asound/cards') if failure else '', **durable)
 
 
 def needs_pulse(device):
@@ -103,6 +116,7 @@ def maximise_capture(card):
 
 
 def select_pulse_source(card, maximise=False):
+    global PULSE_SOURCE
     source = None
     for attempt in range(3):
         code, output, error = run(["pactl", "--format=json", "list", "sources"], timeout=30)
@@ -132,22 +146,30 @@ def select_pulse_source(card, maximise=False):
         if code:
             log("microphone_pulse_error", error=error.strip())
             return False
+    PULSE_SOURCE = source
     log("microphone_pulse_source", source=source)
     return True
 
 
 def main():
+    global PULSE_DIAGNOSTICS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", default="default")
     parser.add_argument("--pulse", action="store_true", help="Use shared PulseAudio capture for auto-selected hardware")
     parser.add_argument("--apply-gain", action="store_true", help="Boot task: apply enabled capture gain to every detected card, without starting recording")
     args = parser.parse_args()
+    PULSE_DIAGNOSTICS = args.pulse and needs_pulse(args.device)
     maximise = gain_enabled()
     if args.apply_gain and not maximise:
         log('microphone_gain_disabled')
         return 0
     configured = args.device.strip()
-    if args.pulse and needs_pulse(configured):ensure_pulse()
+    if args.pulse and needs_pulse(configured):
+        try:
+            ensure_pulse()
+        except RuntimeError as error:
+            log('microphone_pulse_error', error=str(error))
+            return 1
     devices=[]
     for attempt in range(5):
         code, listing, error = run(["arecord", "-l"])
@@ -185,9 +207,10 @@ def main():
             return 1
         pcm = configured
         release_idle_pulse_source(selected)
-    log("microphone_selected", pcm=pcm, hardware=selected, available=devices)
     if maximise:
         maximise_devices(devices)
+    log("microphone_selected", pcm=pcm, hardware={**selected, **card_info(selected['number'])},
+        pulse_source=PULSE_SOURCE, available=devices)
     print(pcm, flush=True)
     return 0
 

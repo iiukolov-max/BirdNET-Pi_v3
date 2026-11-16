@@ -1,0 +1,5 @@
+# Traversal only for the recorder; no directory or other log write permission.
+d /var/log/birdnet 0710 root birdnet-audio -
+f /var/log/birdnet/audio.jsonl 0640 pi adm -
+d /run/birdnet-audio 0770 pi birdnet-audio -
+d /run/birdnet-audio-root 0700 root root -

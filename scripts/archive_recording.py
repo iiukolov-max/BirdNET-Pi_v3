@@ -12,6 +12,9 @@ import signal
 import stat
 import subprocess
 import time
+from utils.audio_log import emit
+from utils.audio_snapshot import read as read_audio
+from utils.audio_metrics import Levels, Period, StderrTail
 
 FORMATS = {'flac': ('flac', 'flac'), 'mp3': ('libmp3lame', 'mp3'),
            'ogg': ('libvorbis', 'ogg'), 'opus': ('libopus', 'ogg'), 'wav': ('pcm_s16le', 'wav')}
@@ -30,6 +33,16 @@ def cleanup_limit(previous, path=Path('/etc/birdnet/birdnet.conf')):
 
 def log(event, **data):
     print(json.dumps(dict(event=event, time=dt.datetime.now().astimezone().isoformat(), **data)), flush=True)
+    if event != 'archive_segment_completed' or data.get('first_segment'):
+        emit(event, 'archive_recording', repeat=event != 'archive_segment_completed',
+             interval=86400 if event in {'archive_recovery_required','archive_microphone_unavailable'} else 600,
+             lane='' if event in {'archive_started','archive_stopped','archive_microphone_unavailable'}
+             else event + str(data.get('path','')), **data)
+
+
+def disk_free(root):
+    try:return shutil.disk_usage(root).free
+    except OSError:return None
 
 
 def cleanup(root, trigger=85, target=85, batch=100, usage=shutil.disk_usage):
@@ -87,10 +100,19 @@ def record(conf):
     batch=100
     cleanup(root,trigger,target,batch)
     if conf.get('RTSP_STREAM','').strip():raise ValueError('Archive mode currently supports the microphone input')
-    device=subprocess.check_output(['python3','/usr/local/bin/prepare_microphone.py','--pulse','--device',conf.get('REC_CARD','default')],text=True).strip()
+    try:
+        device=subprocess.check_output(['python3','/usr/local/bin/prepare_microphone.py','--pulse','--device',conf.get('REC_CARD','default')],text=True).strip()
+    except subprocess.CalledProcessError as error:
+        log('archive_microphone_unavailable', returncode=error.returncode)
+        return error.returncode or 1
     channels=int(conf.get('CHANNELS','1'))
     started=dt.datetime.now()
-    source=subprocess.Popen(['arecord','-q','-f','S16_LE','-c',str(channels),'-r','48000','-t','raw','-D',device],stdout=subprocess.PIPE)
+    source=subprocess.Popen(['arecord','-q','-f','S16_LE','-c',str(channels),'-r','48000','-t','raw','-D',device],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    source_tail=StderrTail(source.stderr)
+    levels=Levels()
+    period=Period(interval=float(conf.get('AUDIO_HEARTBEAT_SECONDS','900')),
+                  quiet_dbfs=float(conf.get('AUDIO_QUIET_DBFS','-70')))
+    encoder_tail=None
     seconds=int(conf.get('RECORDING_LENGTH','15'))
     chunks=queue.Queue(maxsize=256)  # At most 16 MiB; absorbs cold model/SD stalls.
     errors=[]
@@ -107,6 +129,7 @@ def record(conf):
     reader=threading.Thread(target=capture,daemon=True);reader.start()
     encoder=None
     stopping=False
+    stop_reason=None
     def stop(*_):
         nonlocal stopping
         stopping=True
@@ -116,11 +139,17 @@ def record(conf):
     last_cleanup=0;completed=0;written=0;segment_bytes=0;p=None;has_signal=False
     limit=seconds*48000*channels*2
     def finish():
-        nonlocal encoder,completed,segment_bytes,has_signal
+        nonlocal encoder,completed,segment_bytes,has_signal,levels
         encoder.stdin.close()
-        if encoder.wait(timeout=30)!=0:raise RuntimeError('Archive encoding failed; partial file retained')
+        code=encoder.wait(timeout=30)
+        if code!=0:
+            log('archive_encoder_stopped', returncode=code, signal=-code if code<0 else None,
+                stderr=encoder_tail.text())
+            raise RuntimeError('Archive encoding failed; partial file retained')
         dest=root/p.name
         if dest.exists():raise RuntimeError('Archive timestamp collision; original preserved')
+        encoder_tail.text()
+        encoder.stderr.close()
         duration=segment_bytes/(48000*channels*2)
         os.replace(p,dest);completed+=1;encoder=None;segment_bytes=0
         info=dest.stat()
@@ -136,10 +165,18 @@ def record(conf):
             rate={'format':fmt,'segment_seconds':seconds,'channels':channels,'sample_rate':48000,
                   'bytes_per_second':measured,'has_signal':True,'updated_at':time.time()}
             rate_tmp=rate_path.with_suffix('.tmp');rate_tmp.write_text(json.dumps(rate));os.replace(rate_tmp,rate_path)
+        measured_levels=levels.result()
+        levels=Levels()
+        transition=period.add(measured_levels,duration,dt.datetime.now().astimezone().isoformat())
+        if transition:log(transition, **measured_levels)
+        summary=period.summary()
+        if summary:
+            emit('heartbeat','heartbeat', console=True, **summary, free_bytes=disk_free(root),
+                 pcm=device, card=read_audio('/proc/asound/cards'))
         has_signal=False
         temp=ready.with_suffix('.tmp');temp.write_text(json.dumps(marker));os.replace(temp,ready)
-        log('archive_segment_completed',path=str(dest),bytes=dest.stat().st_size)
-    log('archive_started',format=fmt,segment_seconds=seconds,channels=channels,directory=str(root))
+        log('archive_segment_completed',path=str(dest),bytes=dest.stat().st_size,first_segment=completed==1,**measured_levels)
+    log('archive_started',format=fmt,segment_seconds=seconds,channels=channels,directory=str(root),pcm=device)
     try:
         while True:
             if time.monotonic()-last_cleanup>10 and not stopping:
@@ -161,11 +198,17 @@ def record(conf):
                     if p.exists() or (root/p.name).exists():raise RuntimeError('Archive timestamp collision')
                     command=['ffmpeg','-hide_banner','-loglevel','error','-nostdin','-probesize','32','-analyzeduration','0',
                              '-f','s16le','-ar','48000','-ac',str(channels),'-i','pipe:0','-map','0:a:0','-c:a',codec,'-threads','1','-f',muxer,str(p)]
-                    encoder=subprocess.Popen(command,stdin=subprocess.PIPE)
+                    encoder=subprocess.Popen(command,stdin=subprocess.PIPE,stderr=subprocess.PIPE)
+                    encoder_tail=StderrTail(encoder.stderr)
                 count=min(len(data),limit-segment_bytes)
                 if not has_signal:has_signal=bool(data[:count].strip(b'\x00'))
+                levels.update(data[:count])
                 encoder.stdin.write(data[:count]);written+=count;segment_bytes+=count;data=data[count:]
                 if segment_bytes==limit:finish()
+    except Exception as error:
+        stop_reason=str(error)
+        error.audio_logged=True
+        raise
     finally:
         if source.poll() is None:source.terminate()
         try:source.wait(timeout=5)
@@ -174,10 +217,27 @@ def record(conf):
             encoder.terminate()
             try:encoder.wait(timeout=10)
             except subprocess.TimeoutExpired:encoder.kill();encoder.wait()
-        source.stdout.close();reader.join(timeout=2)
+        log('archive_capture_stopped', returncode=source.returncode,
+            signal=-source.returncode if source.returncode and source.returncode<0 else None,
+            stderr=source_tail.text(), requested=stopping)
+        if encoder is not None:
+            log('archive_encoder_stopped', returncode=encoder.returncode,
+                stderr=encoder_tail.text() if encoder_tail else '')
+        summary=period.summary(force=True)
+        if summary:emit('heartbeat','heartbeat', console=True, **summary, final=True,
+                        free_bytes=disk_free(root),pcm=device)
+        log('archive_stopped',reason=stop_reason or ('signal requested' if stopping else 'capture ended'),
+            returncode=source.returncode, signal=-source.returncode if source.returncode and source.returncode<0 else None,
+            stderr=source_tail.text())
+        source.stdout.close();source.stderr.close();reader.join(timeout=2)
         if ready.exists() and json.loads(ready.read_text()).get('pid')==os.getpid():ready.unlink()
 
 
 if __name__=='__main__':
     from utils.helpers import get_settings
-    record(get_settings())
+    import sys
+    try:
+        sys.exit(record(get_settings()) or 0)
+    except Exception as error:
+        if not getattr(error,'audio_logged',False):log('archive_stopped',reason=str(error))
+        sys.exit(1)

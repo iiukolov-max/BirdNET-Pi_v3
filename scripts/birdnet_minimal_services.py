@@ -13,7 +13,8 @@ KEEP = {'birdnet_recording.service', 'birdnet_analysis.service', 'caddy.service'
         'birdnet-archive-analysis.service',
         'birdnet-archive-charts.service',
         'birdnet-minimal-services.service', 'birdnet-cpu-policy.service', 'birdnet-startup-log.service',
-        'birdnet-startup-log.timer'}
+        'birdnet-startup-log.timer', 'birdnet-audio-late.service', 'birdnet-audio-late.timer',
+        'birdnet-audio-rotate.service', 'birdnet-audio-rotate.timer', 'birdnet-audio-led.service'}
 KNOWN = {'birdnet_log.service', 'birdnet_stats.service', 'chart_viewer.service',
          'spectrogram_viewer.service', 'web_terminal.service', 'livestream.service',
          'custom_recording.service', 'icecast2.service', 'caddy.service', 'caddy-api.service'}
