@@ -5,12 +5,19 @@ if [ "${OPERATION_MODE:-normal}" = archive ]; then
   exec /usr/bin/python3 "$(dirname "$(readlink -f "$0")")/archive_recording.py"
 fi
 
+audio_logger="$(dirname "$(readlink -f "$0")")/utils/audio_log.py"
+audio_event() {
+  /usr/bin/python3 "$audio_logger" "$1" --fields "{\"returncode\":${2:-0}}" || true
+}
+trap 'audio_event recording_shell_stopped "$?"' EXIT
+
 loop_ffmpeg(){
   while true;do
-    if ! ffmpeg -hide_banner -loglevel $LOGGING_LEVEL -nostdin ${1} -i ${2} -vn -map a:0 -acodec pcm_s16le -ac 2 -ar 48000 -f segment -segment_format wav -segment_time ${RECORDING_LENGTH} -strftime 1 ${RECS_DIR}/StreamData/%F-birdnet-RTSP_${3}-%H:%M:%S.wav
-    then
-      sleep 1
-    fi
+    audio_event ffmpeg_started
+    ffmpeg -hide_banner -loglevel $LOGGING_LEVEL -nostdin ${1} -i ${2} -vn -map a:0 -acodec pcm_s16le -ac 2 -ar 48000 -f segment -segment_format wav -segment_time ${RECORDING_LENGTH} -strftime 1 ${RECS_DIR}/StreamData/%F-birdnet-RTSP_${3}-%H:%M:%S.wav
+    status=$?
+    audio_event ffmpeg_stopped "$status"
+    if [ "$status" -ne 0 ]; then sleep 1; fi
   done
 }
 
@@ -50,10 +57,11 @@ if [ -n "${RTSP_STREAM}" ];then
   wait
 else
   # Share the selected capture source with live streaming through PulseAudio.
-  REC_CARD=$(python3 /usr/local/bin/prepare_microphone.py --pulse --device "${REC_CARD:-default}") || exit 1
+  REC_CARD=$(python3 /usr/local/bin/prepare_microphone.py --pulse --device "${REC_CARD:-default}") || { status=$?; audio_event recording_microphone_unavailable "$status"; exit "$status"; }
   if pgrep arecord &> /dev/null ;then
     echo "Recording"
   else
+    audio_event arecord_started
     if [ -z ${REC_CARD} ];then
       arecord -f S16_LE -c${CHANNELS} -r48000 -t wav --max-file-time ${RECORDING_LENGTH}\
 	      	      	       --use-strftime ${RECS_DIR}/StreamData/%F-birdnet-%H:%M:%S.wav
@@ -61,5 +69,8 @@ else
       arecord -f S16_LE -c${CHANNELS} -r48000 -t wav --max-file-time ${RECORDING_LENGTH}\
         -D "${REC_CARD}" --use-strftime ${RECS_DIR}/StreamData/%F-birdnet-%H:%M:%S.wav
     fi
+    status=$?
+    audio_event arecord_stopped "$status"
+    exit "$status"
   fi
 fi

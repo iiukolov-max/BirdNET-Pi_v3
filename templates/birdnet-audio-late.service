@@ -1,0 +1,13 @@
+[Unit]
+Description=BirdNET audio diagnostics after recording startup
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/birdnet-audio-startup.py --late
+TimeoutStartSec=15
+UMask=0027
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/log/birdnet /run/birdnet-audio
