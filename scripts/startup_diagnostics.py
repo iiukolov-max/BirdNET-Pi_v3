@@ -9,6 +9,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from prepare_microphone import capture_devices
+
 
 def read(path):
     try:
@@ -31,6 +33,21 @@ def properties(args):
     if result.get("exit_code") != 0:
         return {"query_error": result}
     return dict(line.split("=", 1) for line in result["output"].splitlines() if "=" in line)
+
+
+def audio_snapshot():
+    probe = command(["/usr/bin/env", "LC_ALL=C", "arecord", "-l"])
+    devices = capture_devices(probe.get("output", ""))
+    if devices:
+        present = True
+    elif "no soundcards found" in probe.get("error", "").lower() or (
+        probe.get("exit_code") == 0 and not probe.get("error")
+        and probe.get("output") == "**** List of CAPTURE Hardware Devices ****"
+    ):
+        present = False
+    else:
+        present = None
+    return present, devices, probe
 
 
 def snapshot():
@@ -58,6 +75,7 @@ def snapshot():
             if value.isdigit() and int(value):
                 state[destination] = int(value) / 1_000_000
         services[unit] = state
+    audio_present, audio_devices, audio_probe = audio_snapshot()
     return {"schema_version": 1, "event": "time_and_rtc_snapshot",
             "observed_at_utc": now.isoformat(), "observed_at_local": now.astimezone().isoformat(),
             "boot_id": read("/proc/sys/kernel/random/boot_id"),
@@ -68,13 +86,14 @@ def snapshot():
                                  "-p", "NTP", "-p", "LocalRTC", "-p", "TimeUSec", "-p", "RTCTimeUSec"]),
             "rtc_detected_by_kernel": bool(rtc_devices), "rtc_devices": rtc_devices,
             "rtc_read": command(["hwclock", "--show"]) if rtc_devices else None,
-            "services": services}
+            "audio_capture_present": audio_present, "audio_capture_devices": audio_devices,
+            "audio_capture_probe": audio_probe, "services": services}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log-file", type=Path, help="Append one JSON record; omit to print only")
-    parser.add_argument("--history-file", type=Path, help="Publish latest five boot dates and RTC presence for Overview")
+    parser.add_argument("--history-file", type=Path, help="Publish latest five boot dates, RTC and audio presence for Overview")
     args = parser.parse_args()
     record = snapshot()
     line = json.dumps(record, ensure_ascii=False)

@@ -37,7 +37,8 @@ def load_records(path):
 def publish_history(log_file, output_file):
     records, _ = load_records(log_file)
     rows = [{'time': r.get('observed_at_local'),
-             'rtc': r.get('rtc_detected_by_kernel') if isinstance(r.get('rtc_detected_by_kernel'), bool) else None}
+             'rtc': r.get('rtc_detected_by_kernel') if isinstance(r.get('rtc_detected_by_kernel'), bool) else None,
+             'audio': r.get('audio_capture_present') if isinstance(r.get('audio_capture_present'), bool) else None}
             for r in records[-5:][::-1]]
     output_file.parent.mkdir(parents=True, exist_ok=True)
     temporary = output_file.with_name('.' + output_file.name + '.tmp')
@@ -82,6 +83,9 @@ def render(record):
         lines.append('  Чтение RTC: ошибка — ' + (reading.get('error') or 'hwclock не смог прочитать часы'))
     elif reading.get('output'):
         lines.append('  hwclock: ' + reading['output'])
+    audio = record.get('audio_capture_present')
+    audio_label = 'обнаружен' if audio is True else 'не обнаружен' if audio is False else 'нет данных'
+    lines.append('  Аудиовход: ' + audio_label)
     clock = record.get('clock') or {}
     sync = {'yes': 'да', 'no': 'нет'}.get(clock.get('NTPSynchronized'), 'нет данных')
     lines.append(f"  Часовой пояс: {clock.get('Timezone', 'нет данных')}; синхронизация NTP: {sync}")
