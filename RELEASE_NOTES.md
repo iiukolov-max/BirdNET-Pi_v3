@@ -1,3 +1,10 @@
+# BirdNET-Pi V3 - Preview 13
+
+- Move the persistent system journal switch into **Advanced Settings → Logging**, above the service log levels.
+- The switch controls storage after reboot. The service log levels control message detail.
+
+This release retains the journal diagnostics and Overview improvements from Preview 12. Existing installations can update through Tools → Update.
+
 # BirdNET-Pi V3 - Preview 12
 
 - Add an Advanced Settings switch for bounded, persistent system diagnostics to investigate USB microphone, driver and power faults after reboot.

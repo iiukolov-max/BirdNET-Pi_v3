@@ -565,13 +565,6 @@ foreach($formats as $format){
       </td></tr></table><br>
 
       <table class="settingstable"><tr><td>
-      <h2><?php echo recording_text($recording_ui['system_diagnostics']); ?></h2>
-      <input name="persistent_system_journal_present" type="hidden" value="1">
-      <label for="persistent_system_journal">
-      <input id="persistent_system_journal" name="persistent_system_journal" type="checkbox" value="1" <?php if (($newconfig['PERSISTENT_SYSTEM_JOURNAL'] ?? '0') === '1') echo 'checked'; ?> />
-      <?php echo recording_text($recording_ui['persistent_journal_label']); ?></label>
-      <p><?php echo recording_text($recording_ui['persistent_journal_help']); ?></p><br>
-
       <h2>Accessibility Settings</h2>
 
       <p>Birdsongs Frequency shifting configuration:<br>
@@ -620,6 +613,11 @@ foreach($formats as $format){
             <tr>
                 <td>
                     <h2>Logging</h2>
+                    <input name="persistent_system_journal_present" type="hidden" value="1">
+                    <label for="persistent_system_journal">
+                    <input id="persistent_system_journal" name="persistent_system_journal" type="checkbox" value="1" <?php if (($newconfig['PERSISTENT_SYSTEM_JOURNAL'] ?? '0') === '1') echo 'checked'; ?> />
+                    <?php echo recording_text($recording_ui['persistent_journal_label']); ?></label>
+                    <p><?php echo recording_text($recording_ui['persistent_journal_help']); ?></p><br>
                     <div class="callout callout-warning">
                         <b>Note:</b>
                         It is recommended that the Log Level be set to <b>Error</b> on production systems to keep output

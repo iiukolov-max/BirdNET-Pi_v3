@@ -2,7 +2,7 @@
 
 Local acoustic monitoring based on [Nachtzuster/BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), with BirdNET+ V3 Preview, recording modes and manual detection review.
 
-**Current release:** [v3-preview.12](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases/tag/v3-preview.12) Р’В· [Release notes](RELEASE_NOTES.md) Р’В· [Published releases](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases)
+**Current release:** [v3-preview.13](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases/tag/v3-preview.13) Р’В· [Release notes](RELEASE_NOTES.md) Р’В· [Published releases](https://github.com/iiukolov-max/BirdNET-Pi_v3/releases)
 
 ## Features
 
@@ -22,7 +22,7 @@ Orange Pi support was contributed and hardware-tested by [miketimofeev](https://
 Install the latest published preview:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.12/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.12 bash birdnet-install.sh
+curl -fsSL https://raw.githubusercontent.com/iiukolov-max/BirdNET-Pi_v3/v3-preview.13/newinstaller.sh -o birdnet-install.sh && BIRDNET_FORK_REF=v3-preview.13 bash birdnet-install.sh
 ```
 
 For **Raspberry Pi Zero 2 W without a display or camera**, add `--zero2-headless` to the installer command. This Raspberry Pi profile backs up boot settings, applies `cma=0` and `gpu_mem=16`, disables graphics/camera and adds 1 GiB disk swap while retaining zram. Do not select this profile for Orange Pi.
