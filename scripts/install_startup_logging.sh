@@ -9,6 +9,7 @@ sudo install -m 0644 "$root/templates/birdnet-startup-log.service" /etc/systemd/
 sudo install -m 0644 "$root/templates/birdnet-startup-log.timer" /etc/systemd/system/birdnet-startup-log.timer
 sudo install -d -m 0755 /etc/logrotate.d
 sudo install -m 0644 "$root/templates/birdnet-startup-log.logrotate" /etc/logrotate.d/birdnet-startup-log
+bash "$root/scripts/install_audio_logging.sh"
 sudo systemctl daemon-reload
 sudo systemctl enable birdnet-microphone-gain.service
 sudo systemctl enable --now birdnet-startup-log.timer

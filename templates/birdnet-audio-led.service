@@ -1,0 +1,16 @@
+[Unit]
+Description=Double ACT flash while USB capture hardware is absent
+After=systemd-tmpfiles-setup.service sound.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/libexec/birdnet-audio-led.py
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=5
+UMask=0077
+NoNewPrivileges=yes
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

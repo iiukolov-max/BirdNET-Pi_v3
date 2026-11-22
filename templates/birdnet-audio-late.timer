@@ -1,0 +1,9 @@
+[Unit]
+Description=Audio snapshot 120 seconds after boot
+
+[Timer]
+OnBootSec=120s
+Unit=birdnet-audio-late.service
+
+[Install]
+WantedBy=timers.target

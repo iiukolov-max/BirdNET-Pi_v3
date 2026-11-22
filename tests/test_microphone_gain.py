@@ -18,6 +18,10 @@ DEVICES = ('card 1: USB [USB microphone], device 0: USB Audio [USB Audio]\n'
 
 class MicrophoneGainTests(unittest.TestCase):
     def setUp(self):
+        # Mocked hardware must never enter the production persistent journal.
+        journal_patch = patch.object(microphone, 'emit', return_value=True)
+        journal_patch.start()
+        self.addCleanup(journal_patch.stop)
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.config = Path(folder.name) / 'birdnet.conf'

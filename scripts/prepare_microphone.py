@@ -10,6 +10,15 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from utils.audio_log import emit
+from utils.audio_snapshot import snapshot, card_info, read as read_audio
+
+PULSE_DIAGNOSTICS = False
+PULSE_SOURCE = None
+CAPTURE_GAIN = []
+
 CONFIG = Path('/etc/birdnet/birdnet.conf')
 
 
@@ -39,6 +48,13 @@ def run(args, timeout=10):
 
 def log(event, **fields):
     print(json.dumps({"event": event, **fields}, ensure_ascii=False), file=sys.stderr, flush=True)
+    failure = event in {'microphone_not_found', 'microphone_configured_device_missing',
+                        'microphone_pulse_source_missing', 'microphone_pulse_error'}
+    durable = {('pulse_source' if k == 'source' else k): v for k, v in fields.items()}
+    emit(event, 'prepare_microphone', repeat=True,
+         lane='' if failure or event == 'microphone_selected' else event + str(fields.get('control', fields.get('card', ''))),
+         snapshot=(lambda: snapshot(PULSE_DIAGNOSTICS)) if failure else None,
+         signature=read_audio('/proc/asound/cards') if failure else '', **durable)
 
 
 def needs_pulse(device):
@@ -98,8 +114,13 @@ def maximise_capture(card):
             continue  # Never adjust playback volume or unrelated controls.
         found = True
         code, result, error = run(["amixer", "-c", card, "sset", control, "capture", *settings])
+        readback = None
+        if code == 0 and "cvolume" in capabilities:
+            read_code, final, read_error = run(["amixer", "-c", card, "sget", control], timeout=.65)
+            readback = {"exit_code": read_code, "output": final.strip(), "error": read_error.strip()}
+            CAPTURE_GAIN.append({"card": card, "control": control, **readback})
         log("microphone_capture_control", card=card, control=control,
-            requested=settings, success=code == 0, result=result.strip(), error=error.strip())
+            requested=settings, success=code == 0, result=result.strip(), error=error.strip(), capture_readback=readback)
         if code:
             success = False
     if success and not found:
@@ -115,6 +136,7 @@ def maximise_pulse_source(source):
 
 
 def select_pulse_source(card, maximise=False):
+    global PULSE_SOURCE
     source = None
     for attempt in range(3):
         code, output, error = run(["pactl", "--format=json", "list", "sources"], timeout=30)
@@ -141,6 +163,7 @@ def select_pulse_source(card, maximise=False):
         if code:
             log("microphone_pulse_error", error=error.strip())
             return False
+    PULSE_SOURCE = source
     if maximise:
         maximise_pulse_source(source)
     log("microphone_pulse_source", source=source)
@@ -148,17 +171,26 @@ def select_pulse_source(card, maximise=False):
 
 
 def main():
+    global PULSE_DIAGNOSTICS, PULSE_SOURCE
+    PULSE_SOURCE = None
+    CAPTURE_GAIN.clear()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", default="default")
     parser.add_argument("--pulse", action="store_true", help="Use shared PulseAudio capture for auto-selected hardware")
     parser.add_argument("--apply-gain", action="store_true", help="Boot task: apply enabled capture gain to every detected card, without starting recording")
     args = parser.parse_args()
+    PULSE_DIAGNOSTICS = args.pulse and needs_pulse(args.device)
     maximise = gain_enabled()
     if args.apply_gain and not maximise:
         log('microphone_gain_disabled')
         return 0
     configured = args.device.strip()
-    if args.pulse and needs_pulse(configured):ensure_pulse()
+    if args.pulse and needs_pulse(configured):
+        try:
+            ensure_pulse()
+        except RuntimeError as error:
+            log('microphone_pulse_error', error=str(error))
+            return 1
     devices=[]
     for attempt in range(5):
         code, listing, error = run(["arecord", "-l"])
@@ -209,7 +241,8 @@ def main():
             return 1
         pcm = configured
         release_idle_pulse_source(selected)
-    log("microphone_selected", pcm=pcm, hardware=selected, available=devices)
+    log("microphone_selected", pcm=pcm, hardware={**selected, **card_info(selected['number'])},
+        pulse_source=PULSE_SOURCE, available=devices, capture_gain=CAPTURE_GAIN)
     print(pcm, flush=True)
     return 0
 

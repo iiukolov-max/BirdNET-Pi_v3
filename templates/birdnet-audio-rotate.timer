@@ -1,0 +1,10 @@
+[Unit]
+Description=Check audio diagnostic log size every 15 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+Unit=birdnet-audio-rotate.service
+
+[Install]
+WantedBy=timers.target
