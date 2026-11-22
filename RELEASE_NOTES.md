@@ -1,3 +1,12 @@
+# BirdNET-Pi V3 - Preview 12
+
+- Add an Advanced Settings switch for bounded, persistent system diagnostics to investigate USB microphone, driver and power faults after reboot.
+- Keep the audio device status in Recent boots, persistent audio diagnostics and the ACT double-flash alert when capture hardware is unavailable.
+- Add 7- and 30-day audio counters, hide an empty Detection chart and accelerate the Overview queries.
+- Allow saving recording settings without a microphone and choosing remote analysis while the analyzer is offline.
+
+Existing installations can update through Tools → Update. Fresh installations use the Preview 12 tag. The system journal option is off by default.
+
 # BirdNET-Pi V3 - Preview 11
 
 Released: 2026-11-08.

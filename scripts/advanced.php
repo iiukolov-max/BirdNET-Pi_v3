@@ -201,6 +201,13 @@ if (isset($_GET["max_files_species"])) {
     ? preg_replace('/^MICROPHONE_GAIN_100=.*$/m', $gain_line, $contents)
     : rtrim($contents)."\n".$gain_line."\n";
 
+  if (isset($_GET['persistent_system_journal_present'])) {
+    $journal_line = 'PERSISTENT_SYSTEM_JOURNAL='.(isset($_GET['persistent_system_journal']) ? '1' : '0');
+    $contents = preg_match('/^PERSISTENT_SYSTEM_JOURNAL=/m', $contents)
+      ? preg_replace('/^PERSISTENT_SYSTEM_JOURNAL=.*$/m', $journal_line, $contents)
+      : rtrim($contents)."\n".$journal_line."\n";
+  }
+
   if(isset($_GET["recording_length"])) {
     $recording_length = $_GET["recording_length"];
     if(strcmp($recording_length,$config['RECORDING_LENGTH']) !== 0) {
@@ -558,6 +565,13 @@ foreach($formats as $format){
       </td></tr></table><br>
 
       <table class="settingstable"><tr><td>
+      <h2><?php echo recording_text($recording_ui['system_diagnostics']); ?></h2>
+      <input name="persistent_system_journal_present" type="hidden" value="1">
+      <label for="persistent_system_journal">
+      <input id="persistent_system_journal" name="persistent_system_journal" type="checkbox" value="1" <?php if (($newconfig['PERSISTENT_SYSTEM_JOURNAL'] ?? '0') === '1') echo 'checked'; ?> />
+      <?php echo recording_text($recording_ui['persistent_journal_label']); ?></label>
+      <p><?php echo recording_text($recording_ui['persistent_journal_help']); ?></p><br>
+
       <h2>Accessibility Settings</h2>
 
       <p>Birdsongs Frequency shifting configuration:<br>
