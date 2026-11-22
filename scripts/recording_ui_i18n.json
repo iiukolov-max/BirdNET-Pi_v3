@@ -1,5 +1,8 @@
 {
   "en": {
+    "system_diagnostics": "System Diagnostics",
+    "persistent_journal_label": "Keep the system journal after reboot",
+    "persistent_journal_help": "Save kernel and system service messages to disk for diagnosis. The journal uses up to 128 MiB and retains up to 14 days. Disabling keeps existing logs and stores new messages in memory.",
     "microphone_gain_100_label": "Set microphone levels to 100% at every boot",
     "microphone_gain_100_help": "When enabled, set all detected sound cards’ adjustable capture controls to 100% and unmute capture at every boot and recording startup. Also set the selected PulseAudio input to 100%. Playback volume is preserved. When disabled, existing capture levels and mute are preserved; disabling does not restore earlier levels. Fixed-gain microphones cannot be adjusted.",
     "analysis_location": "Where to analyze recordings",
@@ -41,6 +44,9 @@
     "recording_paused": "Microphone recording is paused during analysis and will resume automatically."
   },
   "ru": {
+    "system_diagnostics": "Системная диагностика",
+    "persistent_journal_label": "Сохранять системный журнал после перезагрузки",
+    "persistent_journal_help": "Сообщения ядра и служб сохраняются на диск для диагностики. Журнал ограничен 128 МиБ и хранится до 14 дней. При выключении прежние записи остаются на диске, а новые пишутся в память.",
     "microphone_gain_100_label": "Устанавливать уровень микрофонов на 100% при каждой загрузке",
     "microphone_gain_100_help": "При включении устанавливает 100% и снимает mute у регулируемых входов всех обнаруженных звуковых карт при каждой загрузке и запуске записи. Выбранный вход PulseAudio также устанавливается на 100%. Громкость воспроизведения сохраняется. При выключении уровни и mute не меняются; прежние значения не восстанавливаются. Микрофоны с фиксированным усилением не регулируются.",
     "analysis_location": "Где анализировать записи",

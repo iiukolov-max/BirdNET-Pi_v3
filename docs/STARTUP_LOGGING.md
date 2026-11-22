@@ -97,3 +97,9 @@ Inspect detection and mixer results:
 ```bash
 sudo journalctl -u birdnet-microphone-gain.service -u birdnet_recording.service -b
 ```
+
+## Optional persistent system journal
+
+In Advanced Settings, open System Diagnostics and enable **Keep the system journal after reboot** to retain kernel and system service messages on disk. The option is off by default. The disk journal has a 128 MiB size target, a 14-day retention limit and a 30-second sync interval. Turning the option off keeps existing journal files and puts new messages in memory.
+
+For a previous boot, use `sudo journalctl -b -1 -k` to see USB, audio driver, storage and power messages. Compare their timestamps with the recording service or the persistent BirdNET audio log.

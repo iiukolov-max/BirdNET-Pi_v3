@@ -11,6 +11,7 @@ import tempfile
 import time
 from birdnet_service_policy import allowed, validate, CATALOG
 import analysis_backend
+import system_journal
 from settings_plan import HOT_KEYS
 from prepare_microphone import capture_devices
 
@@ -37,7 +38,7 @@ def values(text):
 def changed_settings(before, after):
     defaults = {'OPERATION_MODE':'normal','ARCHIVE_MAX_USED_PERCENT':'85',
                 'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':'','REMOTE_ANALYSIS_BATCH':'10',
-                'MICROPHONE_GAIN_100':'0'}
+                'MICROPHONE_GAIN_100':'0',system_journal.KEY:'0'}
     defaults.update({'SERVICE_ALLOW_'+row['key']:str(row['default']) for row in CATALOG})
     return {k for k in before.keys() | after.keys()
             if before.get(k, defaults.get(k)) != after.get(k, defaults.get(k))}
@@ -114,6 +115,8 @@ def apply(candidate):
     validate(after)
     if after.get('MICROPHONE_GAIN_100', '0') not in ('0', '1'):
         raise ValueError('Invalid microphone gain setting')
+    if after.get(system_journal.KEY, '0') not in ('0', '1'):
+        raise ValueError('Invalid persistent system journal setting')
     analysis_backend.validate_settings(after)
     target = after.get('MODEL')
     mode = after.get('OPERATION_MODE', 'normal')
@@ -196,6 +199,7 @@ def apply(candidate):
             cancel()
         manual_service('stop')
     if touch_analysis:service('stop')
+    journal_applied = False
     try:
         if restart_recording: recording_service('stop')
         atomic(CONFIG, candidate)
@@ -212,6 +216,9 @@ def apply(candidate):
             # explicitly prohibited the analyzer may legitimately wait idle.
             if allowed('birdnet_recording.service', effective) and local_analysis_ready_expected(effective):
                 await_ready(target)
+        if system_journal.KEY in changed:
+            previous_journal = system_journal.apply(effective.get(system_journal.KEY, '0'))
+            journal_applied = True
         if changed & (set(KEYS)|{'MODEL'}):
             profiles[target] = {k: v for k, v in values(candidate).items() if k in KEYS}
             atomic(STATE, json.dumps(profiles, indent=2) + '\n')
@@ -220,6 +227,8 @@ def apply(candidate):
         if touch_analysis:service('stop')
         if restart_recording: recording_service('stop')
         atomic(CONFIG, previous)
+        if journal_applied:
+            system_journal.restore(previous_journal)
         if mode_changed:enforce_services()
         elif policy_changed:enforce_services(policy_keys)
         if restart_recording: recording_service('start')

@@ -79,6 +79,25 @@ class TransactionTests(unittest.TestCase):
         endpoint.assert_not_called()
         ready.assert_not_called()
 
+    def test_journal_setting_leaves_birdnet_services_running(self):
+        key = switch.system_journal.KEY
+        with patch.object(switch.system_journal, 'apply') as apply_journal, \
+                patch.object(switch, 'recording_service') as recording, \
+                patch.object(switch, 'service') as analyzer:
+            switch.apply(switch.replace(self.old, key, '1'))
+            switch.apply(switch.replace(self.config.read_text(), key, '0'))
+        self.assertEqual([call.args for call in apply_journal.call_args_list], [('1',), ('0',)])
+        self.assertEqual(switch.values(self.config.read_text())[key], '0')
+        recording.assert_not_called()
+        analyzer.assert_not_called()
+
+    def test_journal_switch_failure_rolls_back_settings(self):
+        key = switch.system_journal.KEY
+        with patch.object(switch.system_journal, 'apply', side_effect=RuntimeError('journal failed')):
+            with self.assertRaisesRegex(RuntimeError, 'journal failed'):
+                switch.apply(switch.replace(self.old, key, '1'))
+        self.assertEqual(self.config.read_text(), self.old)
+
     def test_missing_model_does_not_change_config(self):
         (self.base / 'model' / (switch.V3 + '.tflite')).unlink()
         with self.assertRaisesRegex(ValueError, 'missing or incomplete'):
