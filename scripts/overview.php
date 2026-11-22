@@ -129,7 +129,7 @@ if (get_included_files()[0] === __FILE__) {
     showDialog();
   }
   </script>  
-<link rel="stylesheet" href="static/overview-layout.css?v=20261008-compact">
+<link rel="stylesheet" href="static/overview-layout.css?v=20261122-boot-audio">
 <div class="overview-stats">
 <div class="right-column">
 <div class="overview-row<?php echo (($config['OPERATION_MODE'] ?? 'normal')==='archive') ? ' has-archive' : ''; ?>">

@@ -53,8 +53,8 @@
 .overview .boot-history-panel{border:1px solid #8887;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px #00000012}
 .overview .boot-history-panel h3{margin:0;padding:16px 18px;font-size:1.05rem;text-align:left}
 .overview .boot-history-panel table{width:100%;table-layout:fixed;margin:0;border-collapse:collapse}
-.overview .boot-history-panel th{font-size:.8rem;font-weight:normal;text-align:left;padding:10px 12px}
-.overview .boot-history-panel td{font-size:.85rem;text-align:left;padding:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.overview .boot-history-panel th{font-size:.8rem;font-weight:normal;text-align:left;padding:10px 6px}
+.overview .boot-history-panel td{font-size:.85rem;text-align:left;padding:12px 6px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .overview .boot-history-panel tbody tr+tr{border-top:1px solid #8883}
 .overview .rtc-badge{display:inline-block;padding:3px 7px;border-radius:20px;font-size:.75rem;font-weight:600}
 .overview .rtc-present{background:#d7f3dc;color:#145c2b}
