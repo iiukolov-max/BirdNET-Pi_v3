@@ -1,4 +1,5 @@
 """Manual analysis of a snapshot of completed archive recordings."""
+from contextlib import closing
 import datetime as dt
 import json
 import os
@@ -11,8 +12,8 @@ import time
 import shutil
 import hashlib
 from archive_recording import PATTERN
-from utils.helpers import get_settings, BASE_PATH, DB_PATH
-from utils.file_failures import InvalidRecording, failures, preserve_failure
+from utils.helpers import get_settings, get_wav_files, BASE_PATH, DB_PATH
+from utils.file_failures import InvalidRecording, failures, fingerprint, preserve_failure
 from utils.database import connect as connect_database
 from recording_capacity import capacity
 
@@ -61,6 +62,49 @@ def pending():
     return result
 
 
+def pending_windows(paths, today=None):
+    today = today or dt.date.today()
+    week = today - dt.timedelta(days=6)
+    month = today - dt.timedelta(days=29)
+    weekly = monthly = 0
+    for path in paths:
+        day, separator, _ = path.name.partition('-birdnet-')
+        if not separator or len(day) != 10:
+            continue
+        try:
+            recorded = dt.date.fromisoformat(day)
+        except ValueError:
+            continue
+        if month <= recorded <= today:
+            monthly += 1
+            weekly += recorded >= week
+    return {'pending_week': weekly, 'pending_month': monthly}
+
+
+def normal_pending_windows(settings):
+    if not (Path(settings['RECS_DIR']) / 'StreamData').is_dir():
+        return pending_windows(())
+    retained = failures()
+    waiting = []
+    with closing(sqlite3.connect(Path(DB_PATH).as_uri() + '?mode=ro', uri=True, timeout=10)) as db:
+        has_ledger = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='normal_processed'").fetchone()
+        for name in get_wav_files():
+            path = Path(name)
+            try:
+                if path.is_symlink() or not path.is_file():
+                    continue
+                info = path.stat()
+                if not info.st_size or (retained and fingerprint(path) in retained):
+                    continue
+            except FileNotFoundError:
+                continue
+            identity = (os.path.abspath(path), info.st_size, info.st_mtime_ns)
+            if has_ledger and db.execute('SELECT 1 FROM normal_processed WHERE name=? AND size=? AND mtime=?', identity).fetchone():
+                continue
+            waiting.append(path)
+    return pending_windows(waiting)
+
+
 def publish(state):
     tmp=STATE.with_suffix('.tmp')
     tmp.write_text(json.dumps(state));os.replace(tmp,STATE)
@@ -89,6 +133,7 @@ def status():
         state['recording_paused']=False
     waiting=pending()
     state['pending']=len(waiting)
+    state.update(pending_windows(waiting))
     retained=failures()
     state['retained_failures']=len(retained)
     state['quarantined']=sum(bool(row.get('quarantined')) for row in retained.values())
@@ -208,6 +253,9 @@ def worker():
 
 
 if __name__=='__main__':
-    if sys.argv[1:]==['status']:print(json.dumps(status()))
+    if sys.argv[1:] == ['status']:
+        settings = get_settings()
+        print(json.dumps(status() if settings.get('OPERATION_MODE', 'normal') == 'archive'
+                         else normal_pending_windows(settings)))
     elif sys.argv[1:]==['worker']:worker()
     else:raise SystemExit('Expected status or worker')
