@@ -90,7 +90,7 @@ if(isset($_GET["latitude"])){
   $remote_batch=$_GET['remote_analysis_batch'] ?? ($config['REMOTE_ANALYSIS_BATCH'] ?? '10');
   if (!in_array($backend,array('local','remote'),true)) die('Invalid analysis backend');
   if (!ctype_digit((string)$remote_batch) || (int)$remote_batch<1 || (int)$remote_batch>100) die('Invalid remote batch size');
-  if ($backend==='remote' && (!filter_var($remote_ip,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4) || $model!=='BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned')) {
+  if ($backend==='remote' && !filter_var($remote_ip,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4)) {
     http_response_code(400);die(recording_text($recording_ui['remote_settings_invalid']));
   }
   $mode_fields['ANALYSIS_BACKEND']=$backend;

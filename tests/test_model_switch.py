@@ -28,6 +28,7 @@ class TransactionTests(unittest.TestCase):
         for name, value in [('BASE', self.base), ('CONFIG', self.config), ('STATE', self.state),
                             ('atomic', atomic), ('service', lambda *a: None), ('labels', lambda: None),
                             ('enforce_services', lambda: None), ('PAUSE_MARKER', self.base/'pause.json'),
+                            ('capture_expected', lambda config: True),
                             ('active',lambda unit:unit!='birdnet-archive-analysis')]:
             patcher = patch.object(switch, name, value)
             patcher.start()
@@ -55,6 +56,28 @@ class TransactionTests(unittest.TestCase):
         restored = switch.values(self.config.read_text())
         self.assertEqual(restored['SENSITIVITY'], '1.25')
         self.assertEqual(restored['PRIVACY_THRESHOLD'], '1')
+
+    def test_archive_settings_save_without_capture_hardware(self):
+        current = switch.replace(self.old, 'OPERATION_MODE', 'archive')
+        self.config.write_text(current)
+        with patch.object(switch, 'capture_expected', return_value=False), \
+                patch.object(switch, 'recording_service') as recording, \
+                patch.object(switch, 'await_archive') as ready:
+            switch.apply(switch.replace(current, 'MICROPHONE_GAIN_100', '1'))
+        self.assertEqual(switch.values(self.config.read_text())['MICROPHONE_GAIN_100'], '1')
+        self.assertEqual([call.args for call in recording.call_args_list], [('stop',), ('start',)])
+        ready.assert_not_called()
+
+    def test_remote_choice_saves_with_v2_without_contacting_server(self):
+        candidate = switch.replace(self.old, 'REMOTE_ANALYSIS_IP', '192.168.0.254')
+        candidate = switch.replace(candidate, 'ANALYSIS_BACKEND', 'remote')
+        with patch.object(switch.analysis_backend, 'endpoint') as endpoint, \
+                patch.object(switch, 'await_ready') as ready:
+            switch.apply(candidate)
+        self.assertEqual(switch.values(self.config.read_text())['ANALYSIS_BACKEND'], 'remote')
+        self.assertEqual(switch.values(self.config.read_text())['MODEL'], switch.MODELS[0])
+        endpoint.assert_not_called()
+        ready.assert_not_called()
 
     def test_missing_model_does_not_change_config(self):
         (self.base / 'model' / (switch.V3 + '.tflite')).unlink()
