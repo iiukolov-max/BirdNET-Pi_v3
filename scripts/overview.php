@@ -153,8 +153,8 @@ if (get_included_files()[0] === __FILE__) {
   <p data-field="free"></p><p data-field="capacity"></p><p data-field="days"></p>
   <small><?php echo recording_text($recording_ui['cleanup_help']); ?></small>
 </aside>
-<script defer src="static/archive-analysis.js"></script>
 <?php } ?>
+<script defer src="static/archive-analysis.js?v=20261122-pending-windows"></script>
 <?php require_once __DIR__.'/overview_boot_history.php'; render_overview_boot_history(); ?>
 </div>
 
@@ -191,11 +191,24 @@ let latestDetections = null;
 let latestMobile = null;
 let latestChart = <?php echo json_encode($chartVersion); ?>;
 let summaryHtml = null;
+let pendingAudioCounts = null;
 let speciesHtml = null;
 let overviewTimer = null;
 let customImageTimer = null;
 const overviewInterval = <?php echo max(5, intval($config['RECORDING_LENGTH'] / 4)); ?> * 1000;
 const customImage = <?php echo json_encode(isset($config['CUSTOM_IMAGE']) && strlen($config['CUSTOM_IMAGE']) > 2); ?>;
+
+function renderPendingAudioCounts() {
+  if (!pendingAudioCounts) return;
+  for (const cell of document.querySelectorAll('[data-pending-audio]')) {
+    const count = pendingAudioCounts[cell.dataset.pendingAudio];
+    cell.textContent = Number.isInteger(count) ? count.toLocaleString('ru-RU') : '—';
+  }
+}
+document.addEventListener('birdnet-pending-audio', event => {
+  pendingAudioCounts = event.detail;
+  renderPendingAudioCounts();
+});
 
 async function refreshOverview() {
   if (document.hidden || overviewPending) return;
@@ -208,6 +221,7 @@ async function refreshOverview() {
     const left = document.querySelector('.left-column');
     if (summaryHtml !== data.summary) {
       left.innerHTML = data.summary;
+      renderPendingAudioCounts();
       summaryHtml = data.summary;
     }
     const species = document.querySelector('#overview-new-species');

@@ -5,7 +5,8 @@ header('Cache-Control: no-store');
 $config=get_config();
 require_once __DIR__.'/recording_ui.php';
 $labels=recording_strings($config['DATABASE_LANG'] ?? 'en');
-if (($config['OPERATION_MODE'] ?? 'normal') !== 'archive') {
+$overviewRead = $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['overview_pending']);
+if (($config['OPERATION_MODE'] ?? 'normal') !== 'archive' && !$overviewRead) {
   http_response_code(409); echo json_encode(array('error'=>$labels['normal'])); exit;
 }
 if ($_SERVER['REQUEST_METHOD']==='POST') {

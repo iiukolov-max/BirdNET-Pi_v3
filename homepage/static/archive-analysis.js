@@ -1,6 +1,22 @@
 (() => {
   const panel=document.getElementById('archive-analysis');
-  if (!panel) return;
+  const publishPending = state => document.dispatchEvent(new CustomEvent('birdnet-pending-audio', {
+    detail: {pending_week: state.pending_week, pending_month: state.pending_month}
+  }));
+  if (!panel) {
+    if (!document.querySelector('[data-pending-audio]')) return;
+    async function pollNormal() {
+      if (!document.hidden) {
+        try {
+          const response = await fetch('scripts/archive_analysis.php?overview_pending=1');
+          if (response.ok) publishPending(await response.json());
+        } catch (error) { console.warn(error.message); }
+      }
+      setTimeout(pollNormal, 30000);
+    }
+    pollNormal();
+    return;
+  }
   const button=panel.querySelector('button'), progress=panel.querySelector('progress');
   const labels=JSON.parse(panel.dataset.i18n), locale=panel.dataset.language || 'en';
   const t=(key,values={})=>(labels[key] || key).replace(/\{(\w+)\}/g,(_,name)=>values[name] ?? '');
@@ -14,6 +30,7 @@
       const response=await fetch('scripts/archive_analysis.php',options), s=await response.json();
       if (response.status===409) {panel.remove();return;}
       if (!response.ok) throw new Error(s.error || labels.error);
+      publishPending(s);
       active=s.active;
       set('pending',t('pending',{n:number(s.pending)}));
       set('progress','');set('new_files','');set('eta','');set('errors','');

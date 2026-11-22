@@ -103,6 +103,7 @@ function render_overview_audio_counts($counts) {
       <tbody>
         <tr><th scope="row">Проанализировано</th><td><?= number_format($counts['processed_week'], 0, '', ' ') ?></td><td><?= number_format($counts['processed_month'], 0, '', ' ') ?></td></tr>
         <tr><th scope="row">Сохранено файлов</th><td><?= number_format($counts['saved_week'], 0, '', ' ') ?></td><td><?= number_format($counts['saved_month'], 0, '', ' ') ?></td></tr>
+        <tr><th scope="row">Осталось проанализировать</th><td data-pending-audio="pending_week">—</td><td data-pending-audio="pending_month">—</td></tr>
       </tbody>
     </table>
   </section>
