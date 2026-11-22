@@ -33,6 +33,7 @@ def migrate(database, backup_directory):
         )""")
         connection.execute('CREATE INDEX IF NOT EXISTS idx_detection_reviews_status ON detection_reviews(review_status)')
         connection.execute('CREATE INDEX IF NOT EXISTS idx_detection_reviews_reviewed_at ON detection_reviews(reviewed_at)')
+        connection.execute('CREATE INDEX IF NOT EXISTS detections_Sci_Name_Date_Time ON detections(Sci_Name,Date,Time)')
         result = {'backup': str(backup), 'detections': connection.execute('SELECT count(*) FROM detections').fetchone()[0],
                   'reviews': connection.execute('SELECT count(*) FROM detection_reviews').fetchone()[0]}
         connection.commit()

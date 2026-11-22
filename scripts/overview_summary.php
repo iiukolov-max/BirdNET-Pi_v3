@@ -47,3 +47,64 @@ function render_overview_summary($counts) {
   </section>
   <?php
 }
+
+/* Recording dates, using the same calendar-day windows as the other cards. */
+function get_overview_audio_counts($db, $extracted, $today = null) {
+  $today = $today ?? date('Y-m-d');
+  $end = new DateTimeImmutable($today);
+  $week = $end->modify('-6 days')->format('Y-m-d');
+  $month = $end->modify('-29 days')->format('Y-m-d');
+  $counts = ['processed_week'=>0, 'processed_month'=>0, 'saved_week'=>0, 'saved_month'=>0];
+  $date = "substr(name, instr(name, '-birdnet-') - 10, 10)";
+  foreach (['normal_processed', 'archive_processed'] as $table) {
+    if (!$db->querySingle("SELECT 1 FROM sqlite_master WHERE type='table' AND name='$table'")) continue;
+    $query = $db->prepare("SELECT COUNT(*) AS total, COUNT(CASE WHEN $date >= :week THEN 1 END) AS week
+      FROM $table WHERE instr(name, '-birdnet-') >= 11 AND $date BETWEEN :month AND :today");
+    $query->bindValue(':week', $week, SQLITE3_TEXT);
+    $query->bindValue(':month', $month, SQLITE3_TEXT);
+    $query->bindValue(':today', $today, SQLITE3_TEXT);
+    $rows = $query->execute();
+    $totals = $rows->fetchArray(SQLITE3_ASSOC);
+    $counts['processed_month'] += $totals['total'];
+    $counts['processed_week'] += $totals['week'];
+    $rows->finalize();
+    $query->close();
+  }
+
+  $query = $db->prepare("SELECT DISTINCT Date, Com_Name, File_Name FROM detections
+    WHERE Date BETWEEN :month AND :today AND File_Name LIKE '%.flac'");
+  $query->bindValue(':month', $month, SQLITE3_TEXT);
+  $query->bindValue(':today', $today, SQLITE3_TEXT);
+  $rows = $query->execute();
+  $seen = [];
+  $directory = rtrim($extracted, '/').'/By_Date/';
+  while ($row = $rows->fetchArray(SQLITE3_ASSOC)) {
+    $species = str_replace(["'", ' '], ['', '_'], $row['Com_Name']);
+    $file = $row['File_Name'];
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $row['Date']) || $species === '..' ||
+        basename($species) !== $species || basename($file) !== $file) continue;
+    $path = $directory.$row['Date'].'/'.$species.'/'.$file;
+    if (isset($seen[$path]) || !is_file($path) || !filesize($path)) continue;
+    $seen[$path] = true;
+    ++$counts['saved_month'];
+    if ($row['Date'] >= $week) ++$counts['saved_week'];
+  }
+  $rows->finalize();
+  $query->close();
+  return $counts;
+}
+
+function render_overview_audio_counts($counts) {
+  ?>
+  <section class="summary-card" aria-labelledby="summary-audio-title">
+    <h3 id="summary-audio-title">Аудиофайлы</h3>
+    <table aria-label="Аудиофайлы за 7 и 30 дней">
+      <thead><tr><th scope="col">Период</th><th scope="col">7 дней</th><th scope="col">30 дней</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Проанализировано</th><td><?= number_format($counts['processed_week'], 0, '', ' ') ?></td><td><?= number_format($counts['processed_month'], 0, '', ' ') ?></td></tr>
+        <tr><th scope="row">Сохранено файлов</th><td><?= number_format($counts['saved_week'], 0, '', ' ') ?></td><td><?= number_format($counts['saved_month'], 0, '', ' ') ?></td></tr>
+      </tbody>
+    </table>
+  </section>
+  <?php
+}
