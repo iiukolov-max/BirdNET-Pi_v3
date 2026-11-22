@@ -15,7 +15,7 @@ def private_ip(value):
     if ip.version!=4 or not any(ip in net for net in NETWORKS):raise ValueError('Enter a private LAN IPv4 address for the analysis computer')
     return str(ip)
 
-def validate(config,check=False):
+def validate_settings(config):
     mode=clean(config.get('ANALYSIS_BACKEND','local'))
     if mode not in ('local','remote'):raise ValueError('Unknown analysis backend')
     batch=int(clean(config.get('REMOTE_ANALYSIS_BATCH','10')))
@@ -23,6 +23,12 @@ def validate(config,check=False):
     host=clean(config.get('REMOTE_ANALYSIS_IP',''))
     if mode=='remote':
         private_ip(host)
+    return mode,host,batch
+
+
+def validate(config,check=False):
+    mode,host,batch=validate_settings(config)
+    if mode=='remote':
         if clean(config.get('MODEL',''))!=V3:raise ValueError('Remote computer analysis currently requires BirdNET V3')
         if check:endpoint(config,refresh=True)
     return mode,host,batch

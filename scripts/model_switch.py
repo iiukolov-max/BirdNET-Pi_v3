@@ -12,6 +12,7 @@ import time
 from birdnet_service_policy import allowed, validate, CATALOG
 import analysis_backend
 from settings_plan import HOT_KEYS
+from prepare_microphone import capture_devices
 
 BASE = Path(__file__).resolve().parent.parent
 CONFIG = BASE / 'birdnet.conf'
@@ -113,8 +114,7 @@ def apply(candidate):
     validate(after)
     if after.get('MICROPHONE_GAIN_100', '0') not in ('0', '1'):
         raise ValueError('Invalid microphone gain setting')
-    backend_changed=any(before.get(k,{'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':''}[k])!=after.get(k,{'ANALYSIS_BACKEND':'local','REMOTE_ANALYSIS_IP':''}[k]) for k in ('ANALYSIS_BACKEND','REMOTE_ANALYSIS_IP'))
-    analysis_backend.validate(after,check=backend_changed and after.get('ANALYSIS_BACKEND','local')=='remote')
+    analysis_backend.validate_settings(after)
     target = after.get('MODEL')
     mode = after.get('OPERATION_MODE', 'normal')
     if mode not in ('normal', 'archive'):
@@ -204,12 +204,14 @@ def apply(candidate):
         elif policy_changed:enforce_services(policy_keys)
         if restart_recording and allowed('birdnet_recording.service', effective): recording_service('start')
         if mode=='archive' and restart_recording and allowed('birdnet_recording.service', effective):
-            await_archive(int(after.get('RECORDING_LENGTH','15'))+120)
+            if capture_expected(effective):
+                await_archive(int(after.get('RECORDING_LENGTH','15'))+120)
         elif start_analysis and touch_analysis:
             service('start')
             # Readiness is published on the first input file. With capture
             # explicitly prohibited the analyzer may legitimately wait idle.
-            if allowed('birdnet_recording.service', effective):await_ready(target)
+            if allowed('birdnet_recording.service', effective) and local_analysis_ready_expected(effective):
+                await_ready(target)
         if changed & (set(KEYS)|{'MODEL'}):
             profiles[target] = {k: v for k, v in values(candidate).items() if k in KEYS}
             atomic(STATE, json.dumps(profiles, indent=2) + '\n')
@@ -223,11 +225,13 @@ def apply(candidate):
         if restart_recording: recording_service('start')
         try:
             if before.get('OPERATION_MODE','normal')=='archive' and restart_recording:
-                await_archive(int(before.get('RECORDING_LENGTH','15'))+120)
+                if capture_expected(before):
+                    await_archive(int(before.get('RECORDING_LENGTH','15'))+120)
             elif analysis_active and touch_analysis:
                 labels()
                 service('start')
-                await_ready(before['MODEL'])
+                if allowed('birdnet_recording.service', before) and local_analysis_ready_expected(before):
+                    await_ready(before['MODEL'])
             if manual_active:manual_service('start')
         except Exception as rollback:
             raise RuntimeError('Settings restored but analyzer recovery failed: ' + str(rollback)) from exc
@@ -255,6 +259,31 @@ def manual_service(action):
 
 def recording_service(action):
     subprocess.run(['systemctl',action,'birdnet_recording.service'],check=True,timeout=180)
+
+
+def local_analysis_ready_expected(conf):
+    return conf.get('ANALYSIS_BACKEND', 'local') == 'local' and capture_expected(conf)
+
+
+def capture_expected(conf):
+    """Skip first-audio readiness only when ALSA confirms no capture hardware."""
+    if conf.get('RTSP_STREAM', '').strip().strip('"'):
+        return True
+    try:
+        result = subprocess.run(
+            ['arecord', '-l'], capture_output=True, text=True, timeout=5,
+            env={**os.environ, 'LC_ALL': 'C'},
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return True
+    if capture_devices(result.stdout):
+        return True
+    if 'no soundcards found' in result.stderr.lower():
+        return False
+    return not (
+        result.returncode == 0 and not result.stderr.strip()
+        and result.stdout.strip() == '**** List of CAPTURE Hardware Devices ****'
+    )
 
 
 def await_archive(timeout=180):

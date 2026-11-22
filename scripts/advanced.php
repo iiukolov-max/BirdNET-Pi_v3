@@ -33,7 +33,7 @@ if(isset($_GET['submit'])) {
   $remote_ip=trim($_GET['remote_analysis_ip'] ?? ($config['REMOTE_ANALYSIS_IP'] ?? ''));
   $remote_batch=$_GET['remote_analysis_batch'] ?? ($config['REMOTE_ANALYSIS_BATCH'] ?? '10');
   if (!in_array($backend,array('local','remote'),true) || !ctype_digit((string)$remote_batch) || (int)$remote_batch<1 || (int)$remote_batch>100 ||
-      ($backend==='remote' && (!filter_var($remote_ip,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4) || $config['MODEL']!=='BirdNET+_V3.0-preview3.1_Global_11K_FP16_pruned'))) {
+      ($backend==='remote' && !filter_var($remote_ip,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4))) {
     http_response_code(400);die(recording_text($recording_ui['remote_settings_invalid']));
   }
   foreach (array('ANALYSIS_BACKEND'=>$backend,'REMOTE_ANALYSIS_IP'=>$remote_ip,'REMOTE_ANALYSIS_BATCH'=>$remote_batch) as $key=>$value) {
