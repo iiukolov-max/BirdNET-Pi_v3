@@ -45,18 +45,22 @@ if(isset($_GET['fetch_chart_string']) && $_GET['fetch_chart_string'] == "true") 
   die();
 }
 
+require_once __DIR__.'/overview_summary.php';
+require_once __DIR__.'/overview_new_species.php';
+$latest = $db->query('SELECT Date, Time, Sci_Name, Com_Name, Confidence, File_Name FROM detections ORDER BY Date DESC, Time DESC, rowid DESC LIMIT 5');
+$rows = [];
+while ($row = $latest->fetchArray(SQLITE3_ASSOC)) $rows[] = $row;
+$latestVersion = hash('sha256', json_encode($rows));
+$chartPath = $config['EXTRACTED'].'/Charts/'.$chart;
+$chartVersion = $chart ? $chart.':'.filemtime($chartPath).':'.filesize($chartPath) : '';
+ob_start();
+render_overview_summary(get_overview_summary($db));
+render_overview_audio_counts(get_overview_audio_counts($db, $config['EXTRACTED']));
+$summary = ob_get_clean();
+ob_start(); render_overview_new_species(get_overview_new_species($db)); $species = ob_get_clean();
 if (isset($_GET['ajax_overview'])) {
-  require_once __DIR__.'/overview_summary.php';
-  require_once __DIR__.'/overview_new_species.php';
-  ob_start(); render_overview_summary(get_overview_summary($db)); $summary = ob_get_clean();
-  ob_start(); render_overview_new_species(get_overview_new_species($db)); $species = ob_get_clean();
-  $latest = $db->query('SELECT Date, Time, Sci_Name, Com_Name, Confidence, File_Name FROM detections ORDER BY Date DESC, Time DESC LIMIT 5');
-  $rows = [];
-  while ($row = $latest->fetchArray(SQLITE3_ASSOC)) $rows[] = $row;
   header('Content-Type: application/json; charset=utf-8');
-  $chart_path=$config['EXTRACTED'].'/Charts/'.$chart;
-  $chart_version=$chart ? $chart.':'.filemtime($chart_path).':'.filesize($chart_path) : '';
-  echo json_encode(['summary'=>$summary, 'species'=>$species, 'latest'=>hash('sha256', json_encode($rows)), 'chart'=>$chart_version]);
+  echo json_encode(['summary'=>$summary, 'species'=>$species, 'latest'=>$latestVersion, 'chart'=>$chartVersion]);
   die();
 }
 
@@ -133,7 +137,7 @@ if (get_included_files()[0] === __FILE__) {
 <div class="overview-stats">
 <div class="right-column">
 <div class="overview-row<?php echo (($config['OPERATION_MODE'] ?? 'normal')==='archive') ? ' has-archive' : ''; ?>">
-<div class="left-column" aria-label="Detection statistics"></div>
+<div class="left-column" aria-label="Overview statistics"><?php echo $summary; ?></div>
 <div class="overview-sidebar">
 <?php if (($config['OPERATION_MODE'] ?? 'normal')==='archive') {
   require_once __DIR__.'/recording_ui.php';
@@ -155,18 +159,15 @@ if (get_included_files()[0] === __FILE__) {
 </div>
 
 <div class="overview-primary">
-<?php
-require_once __DIR__.'/overview_new_species.php';
-render_overview_new_species(get_overview_new_species($db));
-?>
-<div class="chart">
+<?php echo $species; ?>
+<div class="chart" id="overview-chart-panel"<?php if (!$chart) echo " hidden"; ?>>
 <?php
 $refresh = $config['RECORDING_LENGTH'];
 $dividedrefresh = $refresh/4;
 if($dividedrefresh < 1) { 
   $dividedrefresh = 1;
 }
-$time = time();
+$time = rawurlencode($chartVersion);
 echo "<img id='chart' loading='lazy' alt='Detection chart' ".($chart ? "src=\"Charts/$chart?nocache=$time\"" : 'hidden').">";
 ?>
 </div>
@@ -188,7 +189,7 @@ echo "<img id='chart' loading='lazy' alt='Detection chart' ".($chart ? "src=\"Ch
 let overviewPending = false;
 let latestDetections = null;
 let latestMobile = null;
-let latestChart = null;
+let latestChart = <?php echo json_encode($chartVersion); ?>;
 let summaryHtml = null;
 let speciesHtml = null;
 let overviewTimer = null;
@@ -221,7 +222,7 @@ async function refreshOverview() {
       latestMobile = mobile;
     }
     if (latestChart !== data.chart) {
-      await refreshTopTen();
+      refreshTopTen(data.chart);
       latestChart = data.chart;
     }
   } catch (error) {
@@ -242,18 +243,15 @@ async function loadFiveMostRecentDetections() {
 
   if (typeof initCustomAudioPlayers === 'function') initCustomAudioPlayers();
 }
-async function refreshTopTen() {
+function refreshTopTen(version) {
   const chart = document.getElementById('chart');
   if (!chart) return;
-  try {
-    const response = await fetch('overview.php?fetch_chart_string=true');
-      if (response.ok) {
-        const name = (await response.text()).trim();
-        const match = /^Combo-(\d{4})-(\d{2})-(\d{2})\.png$/.exec(name);
-        chart.hidden = !match;
-        if (match) chart.src = 'Charts/' + name + '?nocache=' + Date.now();
-      }
-  } catch (error) { console.warn(error.message); }
+  const name = version.split(':', 1)[0];
+  const available = /^Combo-\d{4}-\d{2}-\d{2}\.png$/.test(name);
+  chart.closest('#overview-chart-panel').hidden = !available;
+  chart.hidden = !available;
+  if (available) chart.src = 'Charts/' + name + '?nocache=' + encodeURIComponent(version);
+  else chart.removeAttribute('src');
 }
 async function refreshCustomImage() {
   try {
@@ -270,7 +268,18 @@ function startAutoRefresh() {
     customImageTimer = setInterval(refreshCustomImage, 1000);
   }
 }
-window.addEventListener('load', () => { refreshOverview(); startAutoRefresh(); });
+document.addEventListener('DOMContentLoaded', async () => {
+  startAutoRefresh();
+  overviewPending = true;
+  const mobile = innerWidth <= 500;
+  try {
+    await loadFiveMostRecentDetections();
+    latestDetections = <?php echo json_encode($latestVersion); ?>;
+    latestMobile = mobile;
+  } catch (error) {
+    console.warn(error.message);
+  } finally { overviewPending = false; }
+});
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     clearInterval(overviewTimer);

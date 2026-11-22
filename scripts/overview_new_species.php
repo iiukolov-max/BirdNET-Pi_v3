@@ -3,28 +3,62 @@ function get_overview_new_species($db, $today = null) {
   $today = $today ?? date('Y-m-d');
   // Today and the preceding 30 calendar days form an inclusive 31-day window.
   $window_start = (new DateTimeImmutable($today))->modify('-30 days')->format('Y-m-d');
-  $lists = [];
-  foreach (['all' => '', 'month' => 'AND Date >= :window_start'] as $key => $filter) {
+  $indexed = (bool)$db->querySingle("SELECT 1 FROM sqlite_master WHERE type='index' AND name='detections_Sci_Name_Date_Time'");
+  if ($indexed) {
+    $query = $db->prepare("WITH species_names AS (
+      SELECT DISTINCT Sci_Name FROM detections
+    ), species AS MATERIALIZED (
+      SELECT Sci_Name, (
+        SELECT d.Date || ' ' || d.Time FROM detections d
+        WHERE d.Sci_Name=species_names.Sci_Name AND d.Date <= :today
+          AND d.Time IS NOT NULL
+        ORDER BY d.Date, d.Time LIMIT 1
+      ) AS first_seen
+      FROM species_names
+    ), top_species AS MATERIALIZED (
+      SELECT Sci_Name, first_seen, (
+        SELECT d.Date || ' ' || d.Time FROM detections d
+        WHERE d.Sci_Name=species.Sci_Name AND d.Date <= :today
+          AND d.Time IS NOT NULL
+        ORDER BY d.Date DESC, d.Time DESC LIMIT 1
+      ) AS last_seen
+      FROM species WHERE first_seen IS NOT NULL
+      ORDER BY first_seen DESC, Sci_Name ASC LIMIT 10
+    ) SELECT species.*, latest.Com_Name, latest.Confidence, latest.File_Name
+      FROM top_species species JOIN detections latest ON latest.rowid = (
+        SELECT d.rowid FROM detections d
+        WHERE d.Sci_Name = species.Sci_Name AND d.Date = substr(species.last_seen, 1, 10)
+          AND d.Time = substr(species.last_seen, 12)
+        ORDER BY d.Confidence DESC, d.File_Name ASC, d.rowid ASC LIMIT 1
+      ) ORDER BY species.first_seen DESC, species.Sci_Name ASC");
+  } else {
     $query = $db->prepare("WITH species AS (
       SELECT Sci_Name,
              MIN(Date || ' ' || Time) AS first_seen,
              MAX(Date || ' ' || Time) AS last_seen
-      FROM detections WHERE Date <= :today $filter GROUP BY Sci_Name
+      FROM detections WHERE Date <= :today GROUP BY Sci_Name
+    ), top_species AS MATERIALIZED (
+      SELECT * FROM species WHERE last_seen IS NOT NULL
+      ORDER BY first_seen DESC, Sci_Name ASC LIMIT 10
     ) SELECT species.*, latest.Com_Name, latest.Confidence, latest.File_Name
-      FROM species JOIN detections latest ON latest.rowid = (
+      FROM top_species species JOIN detections latest ON latest.rowid = (
         SELECT d.rowid FROM detections d
-        WHERE d.Sci_Name = species.Sci_Name AND d.Date || ' ' || d.Time = species.last_seen
-        ORDER BY d.Confidence DESC, d.File_Name ASC LIMIT 1
+        WHERE d.Sci_Name = species.Sci_Name AND d.Date = substr(species.last_seen, 1, 10)
+          AND d.Time = substr(species.last_seen, 12)
+        ORDER BY d.Confidence DESC, d.File_Name ASC, d.rowid ASC LIMIT 1
       ) ORDER BY species.first_seen DESC, species.Sci_Name ASC LIMIT 10");
-    if (!$query) throw new RuntimeException('Cannot prepare new species list');
-    $query->bindValue(':today', $today, SQLITE3_TEXT);
-    if ($key === 'month') $query->bindValue(':window_start', $window_start, SQLITE3_TEXT);
-    $result = $query->execute();
-    if (!$result) throw new RuntimeException('Cannot read new species list');
-    $lists[$key] = [];
-    while ($row = $result->fetchArray(SQLITE3_ASSOC)) $lists[$key][] = $row;
-    $result->finalize();$query->close();
   }
+  if (!$query) throw new RuntimeException('Cannot prepare new species list');
+  $query->bindValue(':today', $today, SQLITE3_TEXT);
+  $result = $query->execute();
+  if (!$result) throw new RuntimeException('Cannot read new species list');
+  $lists = ['all' => [], 'month' => []];
+  while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+    $lists['all'][] = $row;
+    if (substr($row['first_seen'], 0, 10) >= $window_start) $lists['month'][] = $row;
+  }
+  $result->finalize();
+  $query->close();
   return $lists;
 }
 

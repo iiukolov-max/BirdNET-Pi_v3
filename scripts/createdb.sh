@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS detections (
 CREATE INDEX IF NOT EXISTS "detections_Com_Name" ON "detections" ("Com_Name");
 CREATE INDEX IF NOT EXISTS "detections_Sci_Name" ON "detections" ("Sci_Name");
 CREATE INDEX IF NOT EXISTS "detections_Date_Time" ON "detections" ("Date" DESC, "Time" DESC);
+CREATE INDEX IF NOT EXISTS "detections_Sci_Name_Date_Time" ON "detections" ("Sci_Name", "Date", "Time");
 EOF
 chown $USER:$USER $HOME/BirdNET-Pi/scripts/birds.db
 chmod g+w $HOME/BirdNET-Pi/scripts/birds.db
